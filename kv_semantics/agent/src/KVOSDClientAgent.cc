@@ -318,7 +318,7 @@ public:
         std::vector<KVClientNodeView> result;
         
         int64_t pool_id = osdmap.lookup_pg_pool_name(ns);
-        if (pool_id < 0) {  
+        if (pool_id < 0) {
             AGENT_LOG(logger, LogLevel::WARNING,
                         "get_in_by_ns: pool name not found: " + ns);
             return result;

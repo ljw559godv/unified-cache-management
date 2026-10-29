@@ -137,7 +137,7 @@ public:
                                 " maps=" + std::to_string(osdmap_msg->maps.size()) +
                                 " incr=" + std::to_string(osdmap_msg->incremental_maps.size()) +
                                 " data_len=" + std::to_string(osdmap_msg->get_data_len()));
-                // Distinguish a pull request from a MON_pushed OSDMap:
+                // Distinguish a pull request from a MON-pushed OSDMap:
                 // pull requests carry current_epoch in the data bufferlist and
                 // have empty maps + incremental_maps.
                 if (osdmap_msg->maps.empty() && osdmap_msg->incremental_maps.empty()
@@ -152,7 +152,7 @@ public:
             }
             case MSG_OSD_PG_CREATE2:
                 return handle_pg_create(static_cast<MOSDPGCreate2 *>(m));
-            default :
+            default:
                 AGENT_LOG(logger, ::agent::LogLevel::ERROR,
                             "received unsupported message type=" +
                                 std::to_string(m->get_type()));
@@ -340,7 +340,7 @@ private:
                             std::to_string(client_epoch));
         } else {
             // Try to build an incremental response: check whether every
-            // incremental from client_epoch+1 to cur_epoch is cache.
+            // incremental from client_epoch+1 to cur_epoch is cached.
             bool can_incremental = true;
             for (epoch_t e = client_epoch + 1; e <= cur_epoch; ++e) {
                 if (cached_incrementals.find(e) == cached_incrementals.end()) {

@@ -1,21 +1,22 @@
 // -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:t -*-
 // vim: ts=8 sw=2 smarttab
 
-#include <KVAgent.h>
+#include "KVAgent.h"
 
 #include <cerrno>
 #include <chrono>
+#include <cstdint>
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
 #include <string>
 #include <thread>
 
-nammespace {
+namespace {
 
-const char* get_arg(int argc, char** argv, const std::string& name)
+const char* get_arg(int argc, const char** argv, const std::string& name)
 {
-    for (int i = 0; i < argc; ++i) {
+    for (int i = 1; i + 1 < argc; ++i) {
         if (argv[i] == name) {
             return argv[i + 1];
         }
@@ -23,9 +24,9 @@ const char* get_arg(int argc, char** argv, const std::string& name)
     return nullptr;
 }
 
-bool has_flag(int argc, char** argv, const std::string& name)
+bool has_flag(int argc, const char** argv, const std::string& name)
 {
-    for (int i = 0; i < argc; ++i) {
+    for (int i = 1; i < argc; ++i) {
         if (argv[i] == name) {
             return true;
         }
@@ -35,7 +36,7 @@ bool has_flag(int argc, char** argv, const std::string& name)
 
 } // namespace
 
-int main(int argc, char** argv)
+int main(int argc, const char** argv)
 {
     const char *mon_host = get_arg(argc, argv, "--mon-host"); 
     const char *client_name = get_arg(argc, argv, "--client-name");
@@ -74,16 +75,16 @@ int main(int argc, char** argv)
     }
 
     kv_osd_agent_config config{};
-    config.monhost = mon_host;
+    config.mon_host = mon_host;
     config.osd_keyring = client_key;
-    config.osd_id = 0 // dummy, OSD id, not used for crush operations
+    config.osd_id = 0;  // dummy, OSD id, not used for crush operations
     config.dpu_id = 0;
-    config.osd_uuid = "bffe772f-e279-4919-99cb-82f9584172b4";
+    config.osd_uuid = "bffe722f-e279-4919-99cb-82f9584172b4";
     config.osd_mon_heartbeat_interval = 10;
     config.boot_beacon_delay = 5;
     config.addrs = "0.0.0.0:0";
 
-    int result = kv_agent_init(agent, &config, KV_OSD_AGENT_ABI_VERSION,
+    int32_t result = kv_agent_init(agent, &config, KV_OSD_AGENT_ABI_VERSION,
                                sizeof(config), log_dir);
     if (result < 0) {
         std::cerr << "kv_agent_init failed: " << result << std::endl;

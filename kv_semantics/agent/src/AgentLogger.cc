@@ -26,7 +26,7 @@ extern "C" __attribute__((weak)) AgentlogFunc GetAgentLogFunc(void)
 
 namespace agent {
 
-// 动态获取 GetDpLogFunc 函数指针
+// 动态获取 GetDplogFunc 函数指针
 AgentlogFunc get_agentlog_func_impl(void)
 {
 	return GetAgentLogFunc();

@@ -1,7 +1,7 @@
 // -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:t -*-
 // vim: ts=8 sw=2 smarttab
 
-#include <KVClientAgent.h>
+#include "KVClientAgent.h"
 
 #include <cerrno>
 #include <chrono>
@@ -13,9 +13,9 @@
 
 namespace {
 
-const char* get_arg(int argc, char** argv, const std::string& name)
+const char* get_arg(int argc, const char** argv, const std::string& name)
 {
-    for (int i = 0; i < argc; ++i) {
+    for (int i = 1; i + 1 < argc; ++i) {
         if (argv[i] == name) {
             return argv[i + 1];
         }
@@ -23,9 +23,9 @@ const char* get_arg(int argc, char** argv, const std::string& name)
     return nullptr;
 }
 
-bool has_flag(int argc, char** argv, const std::string& name)
+bool has_flag(int argc, const char** argv, const std::string& name)
 {
-    for (int i = 0; i < argc; ++i) {
+    for (int i = 1; i < argc; ++i) {
         if (argv[i] == name) {
             return true;
         }
@@ -47,7 +47,7 @@ void print_nodes(const char *label,
 
 } // namespace
 
-int main(int argc, char** argv)
+int main(int argc, const char** argv)
 {
     agent::KVClientAgentConfig config{
         .mon_host = get_arg(argc, argv, "--mon-host"),
@@ -72,9 +72,9 @@ int main(int argc, char** argv)
         std::cerr << "usage: kv-client-agent-smoke --mon-host <host> "
                      "--client-name <client.name> --client-key <raw-cephx-key> "
                      "[--log-dir <directory>] [--wait <seconds>] "
-                     "[--ns <namespace>] [--get-in]"
-                     "[--get-in-by-ns <namespace>] [--get-all-ns]"
-                     "[--get-up-in-by-ns <ns>] [--get-down-in-by-ns <ns>]"
+                     "[--ns <namespace>] [--get-in] "
+                     "[--get-in-by-ns <namespace>] [--get-all-ns] "
+                     "[--get-up-in-by-ns <ns>] [--get-down-in-by-ns <ns>] "
                      "[--get-up-out-by-ns <ns>] [--get-down-out-by-ns <ns>]"
                   << std::endl;
         return EXIT_FAILURE;
@@ -103,7 +103,7 @@ int main(int argc, char** argv)
                 const char *label;
                 bool up;
                 bool in;
-            }
+            };
             const NsQuery queries[] = {
                 {"up_in",       true, true},
                 {"down_in",     false, true},
@@ -156,12 +156,12 @@ int main(int argc, char** argv)
         }
 
         // 四个具名 ns 接口
-        struct NamedNsQuert {
+        struct NamedNsQuery {
             const char *label;
             const char *ns_arg;
             std::vector<agent::KVClientNodeView> (agent::KVClientAgent::*fn)(const std::string&) const;
         };
-        const NamedNsQuert named_queries[] = {
+        const NamedNsQuery named_queries[] = {
             {"get_up_in_by_ns",     up_in_ns,       &agent::KVClientAgent::get_up_in_by_ns},
             {"get_down_in_by_ns",   down_in_ns,     &agent::KVClientAgent::get_down_in_by_ns},
             {"get_up_out_by_ns",    up_out_ns,      &agent::KVClientAgent::get_up_out_by_ns},
@@ -176,7 +176,7 @@ int main(int argc, char** argv)
             if (nodes.empty()) {
                 std::cout << q.label << ": (none)" << std::endl;
             } else {
-                print_nodes(q.label, nodes)
+                print_nodes(q.label, nodes);
             }
         }
     } else {

@@ -145,8 +145,8 @@ extern "C" KV_AGENT_EXPORT int32_t kv_agent_create_ceph_pool(
 }
 
 extern "C" KV_AGENT_EXPORT int32_t kv_agent_delete_ceph_pool(
-    kv_agent_handle *agent, char* kvnsName, uint32_t kvnsLen
+    kv_agent_handle *agent, char* kvnsName, uint32_t nameLen
 )
 {
-    return agent->impl->kv_agent_delete_ceph_pool(kvnsName, kvnsLen);
+    return agent->impl->kv_agent_delete_ceph_pool(kvnsName, nameLen);
 }
