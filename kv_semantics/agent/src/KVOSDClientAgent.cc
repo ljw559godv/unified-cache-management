@@ -4,7 +4,7 @@
 */
 
 // -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:t -*-
-// vim: ts=8 sw=2 smartttab
+// vim: ts=8 sw=2 smarttab
 
 #include "KVClientAgentImpl.h"
 
@@ -43,9 +43,8 @@ namespace {
 
 // OSD Agent 固定监听端口, 与 KVOSDAgent 中 KV_OSD_AGENT_DEFAULT_PORT 一致.
 // OSDMap 中地址端口为 0 时用此值补齐.
-constexpr int KV_OSD_AGENT_DEFAULT_PORT = 68F00;
+constexpr int KV_OSD_AGENT_DEFAULT_PORT = 6800;
 
-// shard8: 视图刷新线程状态
 struct ViewRefresherState {
     std::thread refresh_thread;
     std::condition_variable cv;
@@ -101,7 +100,7 @@ public:
         if (r < 0) {
             return r;
         }
-        r = context->_conf.set_val("key", "config.client_key");
+        r = context->_conf.set_val("key", config.client_key);
         if (r < 0) {
             return r;
         }
@@ -173,7 +172,7 @@ public:
         started = true;
         AGENT_LOG(logger, LogLevel::INFO, "requested one OSD map");
 
-        // ② 启动视图刷新线程 (Shard8)
+        // ② 启动视图刷新线程
         start_view_refresher();
         return 0;
     }
@@ -237,7 +236,7 @@ public:
             pool_osds.insert(children.begin(), children.end());
         }
 
-        for (int osd : pool_osds) {
+        for (int32_t osd : pool_osds) {
             if (osd < 0 || !osdmap.exists(osd)) {
                 continue;
             }
@@ -343,7 +342,7 @@ public:
             pool_osds.insert(children.begin(), children.end());
         }
 
-        for (int osd : pool_osds) {
+        for (int32_t osd : pool_osds) {
             if (osd < 0 || !osdmap.exists(osd)) {
                 continue;
             }
@@ -381,7 +380,7 @@ public:
         return result;
     }
 
-    // --- Shard8: 视图刷新 ---
+    // --- 视图刷新 ---
 
     int start_view_refresh() override
     {
@@ -409,7 +408,7 @@ public:
                     " src: " + std::to_string(message->get_source().type_str()) + "." + std::to_string(message->get_source().num()) +
                     " pending_fetch_osd=" + 
                         std::to_string(view_refresher ? 
-                            view_refresher->pending_fetch_osd.load() : -12));
+                            view_refresher->pending_fetch_osd.load() : -2));
         if (message->get_type() == CEPH_MSG_OSD_MAP) {
             return handle_osdmap_message(static_cast<MOSDMap *>(message));
         }
@@ -525,8 +524,8 @@ private:
         message->put();
 
         AGENT_LOG(logger, LogLevel::INFO,
-                    "handle osdmap message: applied, osd_eoich=" +
-                    std::string(old_epoch) +
+                    "handle osdmap message: applied, old_epoch=" +
+                    std::to_string(old_epoch) +
                     " new_epoch=" + std::to_string(new_epoch) +
                     " from_dpu=" + std::to_string(from_dpu));
         
@@ -536,7 +535,7 @@ private:
             int expected = source_osd;
             if (view_refresher->pending_fetch_osd.compare_exchange_strong(expected, -1)) {
                 AGENT_LOG(logger, LogLevel::INFO,
-                            "handle osdmap message: CAS successed, "
+                            "handle osdmap message: CAS succeeded, "
                             "clearing pending_fetch_osd and notifying");
                 std::lock_guard rl(view_refresher->refresher_lock);
                 view_refresher->cv.notify_all();
@@ -560,7 +559,7 @@ private:
 
     // --- Phase 2: ViewRefresher 线程生命周期 ---
 
-    void start_view_refresh()
+    void start_view_refresher()
     {
         view_refresher = std::make_unique<ViewRefresherState>();
         view_refresher->refresh_interval = view_refresh_interval_cfg;
@@ -578,7 +577,7 @@ private:
                     std::to_string(view_refresher->fetch_timeout.count()) + "s)");
     }
 
-    void stop_view_refresh()
+    void stop_view_refresher()
     {
         if (!view_refresher) return;
 
@@ -627,7 +626,7 @@ private:
             extract_up_in_dpu_list(dpu_list);
             if (dpu_list.empty()) {
                 AGENT_LOG(logger, LogLevel::INFO,
-                            "OSD map not yet recevied or no UP IN DPU, skipping");
+                            "OSD map not yet received or no UP IN DPU, skipping");
                 continue;
             }
 
@@ -675,10 +674,10 @@ private:
         }
 
         int max_osd = osdmap.get_max_osd();
-        for (int osd = 0; osd < max_osd; ++osd) {
-            if (!osdmap.exists(osd)) continue;
-            if (!osdmap.is_up(osd)) continue;
-            if (!osdmap.is_in(osd)) continue;
+        for (int osd_id = 0; osd_id < max_osd; ++osd_id) {
+            if (!osdmap.exists(osd_id)) continue;
+            if (!osdmap.is_up(osd_id)) continue;
+            if (!osdmap.is_in(osd_id)) continue;
 
             // 验证地址可达性
             auto addrs = osdmap.get_addrs(osd_id);
@@ -808,7 +807,7 @@ private:
         }
 
         // ③ 设置 pending_fetch_osd 标记 (必须在发送请求之前,否则若响应
-        //    在设置前达到, handle_oasmsp_message 的 CAS 会因 pending 仍为
+        //    在设置前达到, handle_osdmsp_message 的 CAS 会因 pending 仍为
         //    -1 而失败, 导致 notify 丢失, wait_for 死等到超时)
         view_refresher->pending_fetch_osd.store(osd_id);
 
@@ -824,7 +823,7 @@ private:
 
         AGENT_LOG(logger, LogLevel::INFO,
                     "sent OSDMap pull request to OSD " + std::to_string(osd_id) +
-                    ", crrrent_epoch=" + std::to_string(current_epoch) +
+                    ", current_epoch=" + std::to_string(current_epoch) +
                     " data_len=" + std::to_string(req_data.length()) +
                     " send_r=" + std::to_string(send_r) +
                     " is_connected=" +
@@ -882,7 +881,7 @@ private:
         // ⑦ 收到响应 (ms_dispatch 已在 handle_osdmap_message 中 apply +
         //    清除 pending + cv.notify_all)
         AGENT_LOG(logger, LogLevel::DEBUG,
-                    " view fetch from OSD" + std::to_string(osd_id) + "succeeded")
+                    " view fetch from OSD" + std::to_string(osd_id) + " succeeded");
         return true;
     }
 
@@ -907,7 +906,7 @@ private:
             messenger_started = false;
         }
         if (pool) {
-            pool.stop();
+            pool->stop();
         }
         messenger.reset();
         monc.reset();
@@ -935,7 +934,7 @@ private:
     bool monc_started = false;
     bool quiesced = false;
 
-    // shard8: 视图刷新
+    // 视图刷新
     std::unique_ptr<ViewRefresherState> view_refresher;
     std::chrono::seconds view_refresh_interval_cfg{KV_VIEW_REFRESH_INTERVAL_DEFAULT};
     std::chrono::seconds view_fetch_timeout_cfg{KV_VIEW_FETCH_TIMEOUT_DEFAULT};

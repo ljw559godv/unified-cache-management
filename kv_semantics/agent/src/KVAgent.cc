@@ -45,28 +45,28 @@ extern "C" KV_AGENT_EXPORT int32_t kv_agent_init(
     const char *log_dir)
 {
     if (!agent || !agent->impl) {
-        AGENT_LOG(nullptr, ::agent::LogLevel_ERROR, "invalid agent handle: " + std::to_string(-EINVAL));
+        AGENT_LOG(nullptr, ::agent::LogLevel::ERROR, "invalid agent handle: " + std::to_string(-EINVAL));
         return INVALID_AGENT_HANDLE;
     }
 
     int r = agent->logger.init("/home/ibc_os_hs/agent_log", "kv_agent");
     if (r < 0) {
-        AGENT_LOG(nullptr, ::agent::LogLevel_ERROR, "failed to initialize file logging: " + std::to_string(r));
+        AGENT_LOG(nullptr, ::agent::LogLevel::ERROR, "failed to initialize file logging: " + std::to_string(r));
         return r;
     }
 
     if (!config) {
-        AGENT_LOG(&agent->logger, ::agent::LogLevel_ERROR, "invalid configuration pointer: " + std::to_string(-EINVAL));
+        AGENT_LOG(&agent->logger, ::agent::LogLevel::ERROR, "invalid configuration pointer: " + std::to_string(-EINVAL));
         return -EINVAL;
     }
 
     if (abi_version != KV_OSD_AGENT_ABI_VERSION) {
-        AGENT_LOG(&agent->logger, ::agent::LogLevel_ERROR, "unsupported ABI version: " + std::to_string(-EPROTONOSUPPORT));
+        AGENT_LOG(&agent->logger, ::agent::LogLevel::ERROR, "unsupported ABI version: " + std::to_string(-EPROTONOSUPPORT));
         return -EPROTONOSUPPORT;
     }
 
     if (config_size < sizeof(kv_osd_agent_config)) {
-        AGENT_LOG(&agent->logger, ::agent::LogLevel_ERROR, "configuration is too small: " + std::to_string(-EINVAL));
+        AGENT_LOG(&agent->logger, ::agent::LogLevel::ERROR, "configuration is too small: " + std::to_string(-EINVAL));
         return -EINVAL;
     }
 
@@ -76,7 +76,7 @@ extern "C" KV_AGENT_EXPORT int32_t kv_agent_init(
         !config->osd_uuid || config->osd_uuid[0] == '\0' ||
         config->osd_mon_heartbeat_interval == 0 ||
         !config->addrs || config->addrs[0] == '\0') {
-            AGENT_LOG(&agent->logger, ::agent::LogLevel_ERROR, "invalid configuration: " + std::to_string(-EINVAL));
+            AGENT_LOG(&agent->logger, ::agent::LogLevel::ERROR, "invalid configuration: " + std::to_string(-EINVAL));
             return -EINVAL;
     }
 
@@ -98,7 +98,7 @@ extern "C" KV_AGENT_EXPORT int32_t kv_agent_is_initialized(
     kv_agent_handle *agent)
 {
     if (!agent || !agent->impl) {
-        AGENT_LOG(nullptr, ::agent::LogLevel_ERROR, "invalid agent handle: " + std::to_string(INVALID_AGENT_HANDLE));
+        AGENT_LOG(nullptr, ::agent::LogLevel::ERROR, "invalid agent handle: " + std::to_string(INVALID_AGENT_HANDLE));
         return INVALID_AGENT_HANDLE;
     }
 
@@ -109,7 +109,7 @@ extern "C" KV_AGENT_EXPORT int32_t kv_agent_start_heartbeat(
     kv_agent_handle *agent)
 {
     if (!agent || !agent->impl) {
-        AGENT_LOG(nullptr, ::agent::LogLevel_ERROR, "invalid agent handle: " + std::to_string(INVALID_AGENT_HANDLE));
+        AGENT_LOG(nullptr, ::agent::LogLevel::ERROR, "invalid agent handle: " + std::to_string(INVALID_AGENT_HANDLE));
         return -EINVAL;
     }
 
@@ -135,18 +135,11 @@ extern "C" KV_AGENT_EXPORT int32_t kv_agent_delete_crush_root(
     return agent->impl->kv_agent_delete_crush_root(kvPoolName, nameLen, osdIdList, listSize);
 }
 
-extern "C" KV_AGENT_EXPORT int32_t kv_agent_is_crush_root_empty(
-    kv_agent_handle *agent, char* kvPoolName, uint32_t nameLen, bool *isEmpty
-)
-{
-    return agent->impl->kv_agent_is_crush_root_empty(kvPoolName, nameLen, isEmpty);
-}
-
 extern "C" KV_AGENT_EXPORT int32_t kv_agent_create_ceph_pool(
     kv_agent_handle *agent, char* kvPoolName, uint32_t kvPoolLen, char* kvnsName, uint32_t kvnsLen
 )
 {
-    return agent->impl->kv_agent_create_ceph_pool(kvPoolName, nameLen, kvnsName, kvnsLen);
+    return agent->impl->kv_agent_create_ceph_pool(kvPoolName, kvPoolLen, kvnsName, kvnsLen);
 }
 
 extern "C" KV_AGENT_EXPORT int32_t kv_agent_delete_ceph_pool(
@@ -154,24 +147,4 @@ extern "C" KV_AGENT_EXPORT int32_t kv_agent_delete_ceph_pool(
 )
 {
     return agent->impl->kv_agent_delete_ceph_pool(kvnsName, kvnsLen);
-}
-
-extern "C" KV_AGENT_EXPORT int32_t kv_agent_withdraw_osd(
-    kv_agent_handle *agent
-)
-{
-    return agent->impl->kv_agent_withdraw_osd();
-}
-
-extern "C" KV_AGENT_EXPORT int32_t kv_agent_set_timeout_down_callback(
-    kv_agent_handle *agent, void (*callback)(void)
-)
-{
-    if (!agent || !agent->impl) {
-        AGENT_LOG(nullptr, ::agent::LogLevel_ERROR, "invalid agent handle: " + std::to_string(-EINVAL));
-        return -EINVAL;
-    }
-
-    agent->impl->set_timeout_down_callback(callback);
-    return 0;
 }

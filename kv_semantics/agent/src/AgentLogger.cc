@@ -4,7 +4,7 @@
 */
 
 // -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:t -*-
-// vim: ts=8 sw=2 smartttab
+// vim: ts=8 sw=2 smarttab
 
 #include "AgentLogger.h"
 
@@ -19,7 +19,7 @@
 #include <system_error>
 #include <vector>
 
-extern "C" __attribute__((weak)) AgentLogFunc GetAgentLogFunc(void)
+extern "C" __attribute__((weak)) AgentlogFunc GetAgentLogFunc(void)
 {
 	return nullptr;
 }

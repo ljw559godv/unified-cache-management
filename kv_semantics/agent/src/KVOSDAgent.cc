@@ -1,5 +1,5 @@
 // -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:t -*-
-// vim: ts=8 sw=2 smartttab
+// vim: ts=8 sw=2 smarttab
 
 #include "KVAgentImpl.h"
 #include "AgentLogger.h"
@@ -33,7 +33,7 @@
 #include "messages/MOSDBeacon.h"
 #include "messages/MOSDBoot.h"
 #include "messages/MOSDMap.h"
-#include "messages/MOSDPGCreate2/h"
+#include "messages/MOSDPGCreate2.h"
 #include "messages/MOSDPGCreated.h"
 #include "mon/MonClient.h"
 #include "msg/Messenger.h"
@@ -120,9 +120,9 @@ class KVOSDMapDispatcher final : public Dispatcher {
 public:
     KVOSDMapDispatcher(CephContext *cct, MonClient *monc, AgentLogger *logger,
                        int osd_id,
-                       std::function<void(cpoch_t, bool)> notify_osdmap)
-        : Dispatcher(cct), monc(monc), logger(logger),, osd_id(osd_id),
-          notify_osdmap(osd::move(notify_osdmap))
+                       std::function<void(epoch_t, bool)> notify_osdmap)
+        : Dispatcher(cct), monc(monc), logger(logger), osd_id(osd_id),
+          notify_osdmap(std::move(notify_osdmap))
     {}
 
     bool ms_dispatch(Message *m) override
@@ -213,7 +213,7 @@ public:
                         c->get_peer_addr().get_legacy_str());
     }
 
-    bool ms_handle_refuse(Connection *c) override
+    bool ms_handle_refused(Connection *c) override
     {
         AGENT_LOG(logger, ::agent::LogLevel::ERROR,
                     "messenger connection refused peer=" +
@@ -278,7 +278,7 @@ private:
                         std::to_string(osdmap.get_num_up_osds()) + "/" +
                         std::to_string(osdmap.get_num_osds()));
         // We should check osdmap.is_up(osd_id) because if this osd was marked down by
-        // monitor, it can still recive osdmap but all the heatbeat(bencon msg) from it
+        // monitor, it can still recive osdmap but all the heatbeat(beacon msg) from it
         // will be ignored by monitor. This down OSD MUST resend BOOT message so can it
         // be marked up. This preocess should be finished in DFX story.
         notify_osdmap(osdmap.get_epoch(),
@@ -316,7 +316,7 @@ private:
         std::lock_guard l(lock);
 
         if (quiesced) {
-            msg->put();
+            req->put();
             return true;
         }
 
@@ -358,7 +358,7 @@ private:
                 AGENT_LOG(logger, ::agent::LogLevel::INFO,
                             "sending incremental OSD map [" +
                                 std::to_string(client_epoch + 1) + ".." +
-                                std::to_string(cur_epoch) + "] to compute agent")
+                                std::to_string(cur_epoch) + "] to compute agent");
             } else {
                 // Full fallback: send the comlete OSDMap encoding.
                 if (cached_full.epoch == cur_epoch && cached_full.bl.length() != 0) {
@@ -366,7 +366,7 @@ private:
                     reply->maps[cur_epoch] = cached_full.bl;
                 } else {
                     ceph::buffer::list bl;
-                    osdmap.encode(bl, CEPH_FEATURES_ALL | CEPH_FEATURES_RESERVED);
+                    osdmap.encode(bl, CEPH_FEATURES_ALL | CEPH_FEATURE_RESERVED);
                     reply->maps[cur_epoch] = bl;
                     cached_full.epoch = cur_epoch;
                     cached_full.bl = bl;
@@ -417,7 +417,7 @@ private:
 
 class KVOSDAgent final : public KVAgentImpl {
 public:
-    ~KVOSDAgent() override;
+    ~KVOSDAgent() override
     {
         shutdown();
     }
@@ -430,7 +430,7 @@ public:
         AGENT_LOG(logger, ::agent::LogLevel::DEBUG,
                     "validating OSD agent configuration");
         if (config.osd_id < 0 || config.mon_host.empty() ||
-            config.osd_key.empty() || config,osd_uuid.empty() ||
+            config.osd_key.empty() || config.osd_uuid.empty() ||
             config.osd_mon_heartbeat_interval == 0) {
                 AGENT_LOG(logger, ::agent::LogLevel::ERROR,
                             "invalid configuration: " + cpp_strerror(-EINVAL));
@@ -527,7 +527,7 @@ public:
         // Use nonce 0 so that Compute Agents connecting with the bare
         // address (no nonce) pass the handle_client_ident target_addr check.
         // A random nonce would cause the server to reject connections from
-        // clients ehat don't know our nonce.
+        // clients that don't know our nonce.
         messenger.reset(Messenger::create(
             cct.get(), msg_type, entity_name_t::OSD(config.osd_id), "kv_osd",
             0));
@@ -570,8 +570,8 @@ public:
             [this](epoch_t epoch, bool up) { handle_osdmap(epoch, up); });
         monc->set_messenger(messenger.get());
         // The messenger needs both auth_client (to authenticate ourselves
-        // to peers lisk MON) and auth_server (to validate incoming client
-        // connections via cephx).  Without auth_server the accpet side
+        // to peers like MON) and auth_server (to validate incoming client
+        // connections via cephx).  Without auth_server the accept side
         // faults on the first auth_request frame, resetting the connection.
         messenger->set_auth_client(monc.get());
         messenger->set_auth_server(monc.get());
@@ -605,7 +605,7 @@ public:
         
         // Wait for rotating service keys so we can validate incoming client
         // authorizers.  Without this, the first client connection may arrive
-        // before the OSD rotating keys are avaliable, causing the auth_server
+        // before the OSD rotating keys are available, causing the auth_server
         // to reject the authorizer and reset the connection.
         r = monc->wait_auth_rotating(
             KV_AGENT_MON_AUTH_TIMEOUT_SECONDS);
@@ -619,7 +619,7 @@ public:
         superblock.cluster_fsid = monc->get_fsid();
         superblock.osd_fsid = cct->_conf->osd_uuid;
         if (superblock.osd_fsid.is_zero()) {
-            return fail_init(-EINVAL, "osd_uuid must be configured")
+            return fail_init(-EINVAL, "osd_uuid must be configured");
         }
         superblock.whoami = config.osd_id;
         superblock.current_epoch = 0;
@@ -649,7 +649,7 @@ public:
     bool is_initialized() const override
     {
         std::lock_guard l(state_lock);
-        // Report only whether the external caller has perdormed the first init
+        // Report only whether the external caller has performed the first init
         // (externally_initialized_), which is different from the internal initialized flag.
         return externally_initialized_;
     }
@@ -670,7 +670,7 @@ public:
         }
         if (heartbeat_running) {
             AGENT_LOG(logger, ::agent::LogLevel::ERROR,
-                        "agent is already running: " +
+                        "heartbeat is already running: " +
                         cpp_strerror(-EALREADY));
             return -EALREADY;
         }
@@ -703,7 +703,7 @@ public:
     int32_t kv_agent_create_crush_root(char* kvPoolName, uint32_t nameLen, int32_t* osdIdList, uint32_t listSize) override // NOLINT(g.STD.02-cpp)
     {
         if (kvPoolName == nullptr || strnlen(kvPoolName, nameLen + 1) != nameLen) {
-            AGENT_LOG(logger, ::agent::LogLevel::ERROR, "Invalid kvPoolName")
+            AGENT_LOG(logger, ::agent::LogLevel::ERROR, "Invalid kvPoolName");
             return -1;
         }
 
@@ -938,7 +938,7 @@ public:
 
             // 检查 items 数组是否为空（只有空白）
             bool root_empty = true;
-            for (size_t 1 = 0; i < items_str_after.length(); ++i) {
+            for (size_t i = 0; i < items_str_after.length(); ++i) {
                 if (items_str_after[i] == '{') {
                     root_empty = false;
                     break;
@@ -1134,14 +1134,14 @@ private:
 
     // 将当前 addrs 字符串中的第一个 IP 移到末尾, 使第二个 IP 成为第一个.
     // 返回 false 表示没有可切换的 IP  (列表长度 < 2).
-    bool retate_addrs()
+    bool rotate_addrs()
     {
         std::vector<std::string> ips;
         size_t begin = 0;
         while (begin < current_addrs_.size()) {
             const auto comma = current_addrs_.find(",", begin);
             ips.push_back(current_addrs_.substr(begin, comma - begin));
-            if (comma == std::string::nops) {
+            if (comma == std::string::npos) {
                 break;
             }
             begin = comma + 1;

@@ -4,11 +4,11 @@
 */
 
 // -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:t -*-
-// vim: ts=8 sw=2 smartttab
+// vim: ts=8 sw=2 smarttab
 
 #pragma once
 
-// File logger initialization errore returned by kv_agent_init().
+// File logger initialization errors returned by kv_agent_init().
 #define AGENT_LOG_ERR_DIRECTORY_NOT_FOUND (-10000)
 #define AGENT_LOG_ERR_PATH_NOT_DIRECTORY (-10001)
 #define AGENT_LOG_ERR_PERMISSION_DENIED (-10002)
@@ -20,8 +20,9 @@
 #ifdef __cplusplus
 
 #include <cstring>
-#include <ctimne>
+#include <ctime>
 #include <filesystem>
+#include <fstream>
 #include <mutex>
 #include <string>
 
@@ -35,7 +36,6 @@
 #endif
 
 // 获取当前时钟周期（基于单调时钟）
-
 static inline unsigned long agent_get_jiffies(void)
 {
     struct timespec ts;
@@ -58,7 +58,7 @@ struct AgentLogRateLimit {
 // NOLINTBEGIN(g.PRE.06-cpp)
 #define AGENT_CHECK_RATE_LIMIT(interval_sec, burst_count, result_var) \
     do { \
-        static AgentLogRateLimit s_rate_limit \
+        static AgentLogRateLimit s_rate_limit; \
         unsigned long now = agent_get_jiffies(); \
         unsigned long interval_jiffies = (interval_sec) * HZ; \
         if (now - s_rate_limit.last_print_jiffies >= interval_jiffies) { \
@@ -99,7 +99,7 @@ typedef int (*AgentlogFuncType)(const int mod_id, const int log_level, char *fil
 using AgentlogFunc = AgentlogFuncType;
 
 // 获取 dplog 函数的声明（由 kvcache_pool 提供, 通过 dlsym 动态获取）
-extern "C" AgentLogFunc GetAgentLogFunc(void);
+extern "C" AgentlogFunc GetAgentLogFunc(void);
 
 // 日志相关常量
 #define PID_KVCACHE_POOL 931
@@ -109,7 +109,7 @@ extern "C" AgentLogFunc GetAgentLogFunc(void);
 
 namespace agent {
 
-AgentLogFunc get_agentlog_func_impl(void);
+AgentlogFunc get_agentlog_func_impl(void);
 
 enum class LogLevel {
     INFO,
@@ -136,7 +136,7 @@ private:
                       const std::string& component);
     std::mutex lock;
     std::ofstream output;
-}
+};
 
 const char *log_level_name(LogLevel level);
 void log(AgentLogger *logger, LogLevel level, const char *module,
@@ -149,8 +149,8 @@ void log(AgentLogger *logger, LogLevel level, const char *module,
     do { \
         ::AgentlogFunc _agentlog = ::agent::get_agentlog_func_impl(); \
         if (_agentlog) { \
-            int _log_level = (level) == ::agent::LogLevel::ERROR ? LOG_ERR: \
-                             (level) == ::agent::LogLevel::WARNING ? LOG_WARNING: \
+            int _log_level = (level) == ::agent::LogLevel::ERROR ? LOG_ERR : \
+                             (level) == ::agent::LogLevel::WARNING ? LOG_WARNING : \
                              (level) == ::agent::LogLevel::DEBUG ? LOG_DEBUG : LOG_INFO; \
             std::string _log_msg = (message); \
             _agentlog(PID_KVCACHE_POOL, _log_level, (char *)_AGENT_FILENAME_, __LINE__, __func__, \
