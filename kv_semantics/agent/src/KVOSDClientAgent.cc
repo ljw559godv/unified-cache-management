@@ -1,5 +1,5 @@
 /*
- * Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All right reserved.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
  * Description: KV OSD Client Agent实现
 */
 
@@ -13,6 +13,7 @@
 #include <cerrno>
 #include <chrono>
 #include <condition_variable>
+#include <cstdint>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -40,9 +41,9 @@
 namespace agent {
 namespace {
 
-// OSD Agent 固定监听窗口, 与 KVOSDAgent 中 KV_OSD_AGENT_DEFAULT_PORT 一致.
+// OSD Agent 固定监听端口, 与 KVOSDAgent 中 KV_OSD_AGENT_DEFAULT_PORT 一致.
 // OSDMap 中地址端口为 0 时用此值补齐.
-constexpr int KV_OSD_AGENT_DEFAULT_PORT = 6000;
+constexpr int KV_OSD_AGENT_DEFAULT_PORT = 68F00;
 
 // shard8: 视图刷新线程状态
 struct ViewRefresherState {
@@ -80,7 +81,7 @@ public:
     }
 
     // Client Agent 初始化含 MonClient/OSD 连接缓存等完整流程
-    // NOLINTBEGIN(huge_mothod)
+    // NOLINTBEGIN(huge_method)
     int init(const KVClientAgentConfig& config,
              AgentLogger *agent_logger) override
     {
@@ -90,12 +91,12 @@ public:
         }
         logger = agent_logger;
 
-        CephInitParamters params(CEPH_ENTITY_TYPE_CLIENT);
+        CephInitParameters params(CEPH_ENTITY_TYPE_CLIENT);
         if (!params.name.from_str(config.client_name)) {
             return -EINVAL;
         }
         context = boost::intrusive_ptr<CephContext>(
-            conmon_preinit(params, CODE_ENVIRONMENT_LIBRARY, 0), false);
+            common_preinit(params, CODE_ENVIRONMENT_LIBRARY, 0), false);
         int r = context->_conf.set_val("mon_host", config.mon_host);
         if (r < 0) {
             return r;
@@ -138,7 +139,7 @@ public:
             return r;
         }
         // 等待 OSD rotating key 就绪, 否则首次连接 OSD Agent 时
-        // CephX 认证会因缺少 rotating key 被拒接, 导致连接 reset.
+        // CephX 认证会因缺少 rotating key 被拒绝, 导致连接 reset.
         r = monc->wait_auth_rotating(
             context->_conf.get_val<std::chrono::seconds>(
                 "client_mount_timeout").count());
@@ -155,7 +156,7 @@ public:
         initialized = true;
         return 0;
     }
-    // NOLINTEND(huge_mothod)
+    // NOLINTEND(huge_method)
 
     int start() override
     {
@@ -167,7 +168,7 @@ public:
             return -EALREADY;
         }
         // ① 一次性订阅 OSDMap (MON 推送首次 OSDMap 后不再持续推送)
-        monc->sub_wait("osdmap", 0, CEPH_SUBSCRIBE_ONETIME);
+        monc->sub_want("osdmap", 0, CEPH_SUBSCRIBE_ONETIME);
         monc->renew_subs();
         started = true;
         AGENT_LOG(logger, LogLevel::INFO, "requested one OSD map");
@@ -187,7 +188,7 @@ public:
     {
         std::lock_guard guard(lock);
         std::vector<KVClientNodeView> result;
-        for (int osd = 0; osd < osdmap.get_max_osds(); ++osd) {
+        for (int osd = 0; osd < osdmap.get_max_osd(); ++osd) {
             if (!osdmap.exists(osd)) {
                 continue;
             }
@@ -231,13 +232,13 @@ public:
 
         std::set<int32_t> pool_osds;
         for (int root : roots) {
-            std::set<int> chlidren;
-            osdmap.crush->get_all_children(root, &chlidren);
-            pool_osds.insert(chlidren.begin(), chlidren.end());
+            std::set<int> children;
+            osdmap.crush->get_all_children(root, &children);
+            pool_osds.insert(children.begin(), children.end());
         }
 
         for (int osd : pool_osds) {
-            if (osd < 0|| !osdmap.exists(osd)) {
+            if (osd < 0 || !osdmap.exists(osd)) {
                 continue;
             }
             if (osdmap.is_up(osd) != up || osdmap.is_in(osd) != in) {
@@ -261,25 +262,25 @@ public:
     }
 
     std::vector<KVClientNodeView> get_up_in_by_ns(
-        const std::vector<int>& ns) const override
+        const std::string& ns) const override
     {
         return get_view_by_ns(ns, true, true);
     }
 
     std::vector<KVClientNodeView> get_down_in_by_ns(
-        const std::vector<int>& ns) const override
+        const std::string& ns) const override
     {
         return get_view_by_ns(ns, false, true);
     }
 
     std::vector<KVClientNodeView> get_up_out_by_ns(
-        const std::vector<int>& ns) const override
+        const std::string& ns) const override
     {
         return get_view_by_ns(ns, true, false);
     }
 
     std::vector<KVClientNodeView> get_down_out_by_ns(
-        const std::vector<int>& ns) const override
+        const std::string& ns) const override
     {
         return get_view_by_ns(ns, false, false);
     }
@@ -288,7 +289,7 @@ public:
     {
         std::lock_guard guard(lock);
         std::vector<KVClientNodeView> result;
-        for (int osd = 0; osd < osdmap.get_max_osds(); ++osd) {
+        for (int osd = 0; osd < osdmap.get_max_osd(); ++osd) {
             if (!osdmap.exists(osd)) {
                 continue;
             }
@@ -372,7 +373,7 @@ public:
         std::vector<std::string> result;
         const auto& pools = osdmap.get_pools();
         for (const auto& [pool_id, pool] : pools) {
-            auto name = pool.get_pool_name(pool_id);
+            auto name = osdmap.get_pool_name(pool_id);
             if (!name.empty()) {
                 result.push_back(std::move(name));
             }
@@ -385,7 +386,7 @@ public:
     int start_view_refresh() override
     {
         // start() 中已自动启动, 此方法供独立调用场景使用
-        if (!view_refresher && view_refresher->running.load()) {
+        if (view_refresher && view_refresher->running.load()) {
             return -EALREADY;
         }
         // 正常流程中 start() 已调用 start_view_refresher(), 此处不应再调
@@ -403,13 +404,13 @@ public:
     bool ms_dispatch(Message *message) override
     {
         AGENT_LOG(logger, LogLevel::INFO,
-                    "ms_dispatch: type: " + std::to_string(message->get_type()) +
+                    "ms_dispatch: type=" + std::to_string(message->get_type()) +
                     " name: " + std::to_string(message->get_type_name()) +
                     " src: " + std::to_string(message->get_source().type_str()) + "." + std::to_string(message->get_source().num()) +
                     " pending_fetch_osd=" + 
                         std::to_string(view_refresher ? 
                             view_refresher->pending_fetch_osd.load() : -12));
-        if (message->get_type() == CEPH_MSG_OSDMAP) {
+        if (message->get_type() == CEPH_MSG_OSD_MAP) {
             return handle_osdmap_message(static_cast<MOSDMap *>(message));
         }
         AGENT_LOG(logger, LogLevel::WARNING,
@@ -492,7 +493,7 @@ private:
     bool handle_osdmap_message(MOSDMap *message)
     {
         // ① 判断来源: OSD (DPU 拉取响应) vs MON (一次性推送)
-        const auto& source_name = message->get_source();
+        const auto source_name = message->get_source();
         bool from_dpu = source_name.is_osd();
         int source_osd = from_dpu ? source_name.num() : -1;
 
@@ -520,7 +521,7 @@ private:
         //    注意: 若 apply_osdmap_message() 内部 decode/apply_incremental 异常
         //    导致未返回, 则 ④ 的 CAS 不会执行, fetch_view_from_dpu 会超时.
         //    因此 CAS 清除 pending 的逻辑不依赖 apply 结果, 放在 put() 之后.
-        uint64 new_epoch = apply_osdmap_message(message);
+        uint64_t new_epoch = apply_osdmap_message(message);
         message->put();
 
         AGENT_LOG(logger, LogLevel::INFO,
@@ -626,7 +627,7 @@ private:
             extract_up_in_dpu_list(dpu_list);
             if (dpu_list.empty()) {
                 AGENT_LOG(logger, LogLevel::INFO,
-                            "OSD map not yet recevied or no UP IN DPU, skiping");
+                            "OSD map not yet recevied or no UP IN DPU, skipping");
                 continue;
             }
 
@@ -679,8 +680,8 @@ private:
             if (!osdmap.is_up(osd)) continue;
             if (!osdmap.is_in(osd)) continue;
 
-            // 验证地址可达到
-            auto addrs = osdmap.get_addr(osd_id);
+            // 验证地址可达性
+            auto addrs = osdmap.get_addrs(osd_id);
             if (addrs.v.empty()) continue;
 
             // 只打印第一个 DPU IP, 这是实际用于连接的地址
@@ -718,7 +719,7 @@ private:
             if (!osdmap.exists(osd_id)) {
                 return nullptr;
             }
-            addrs = osdmap.get_addr(osd_id);
+            addrs = osdmap.get_addrs(osd_id);
         }
         if (addrs.v.empty()) {
             AGENT_LOG(logger, LogLevel::WARNING,
@@ -732,7 +733,7 @@ private:
         entity_addrvec_t first_dpu_addr;
         first_dpu_addr.v.push_back(addrs.v[0]);
         if (first_dpu_addr.v[0].get_port() == 0) {
-            first_dpu_addr.v[0].set_port(CEPH_OSD_AGENT_DEFAULT_PORT);
+            first_dpu_addr.v[0].set_port(KV_OSD_AGENT_DEFAULT_PORT);
         }
 
         AGENT_LOG(logger, LogLevel::INFO,
@@ -745,7 +746,7 @@ private:
         addrs = first_dpu_addr;
 
         // ③ 创建连接
-        auto conn = messenger->connect_to_host(addrs);
+        auto conn = messenger->connect_to_osd(addrs);
         if (!conn) {
             AGENT_LOG(logger, LogLevel::WARNING,
                         "failed to create connection to OSD " +
@@ -806,10 +807,10 @@ private:
             current_epoch = osdmap.get_epoch();
         }
 
-        // ③ 设置 pending_epoch_osd 标记 (必须在发送请求之前,否则若响应
+        // ③ 设置 pending_fetch_osd 标记 (必须在发送请求之前,否则若响应
         //    在设置前达到, handle_oasmsp_message 的 CAS 会因 pending 仍为
         //    -1 而失败, 导致 notify 丢失, wait_for 死等到超时)
-        view_refresher->pending_epoch_osd.store(osd_id);
+        view_refresher->pending_fetch_osd.store(osd_id);
 
         // ④ 发送 OSDMap pull 请求: 复用 MOSDMap, 将 current_epoch 编码进
         //    data bufferlist, maps 和 incremental_maps 保持为空.
@@ -830,18 +831,18 @@ private:
                         std::to_string(conn->is_connected()));
                         
         // ⑤ 等待响应或超时 (异步等待: cv.wait_for)
-        bool time_out = false;
+        bool timed_out = false;
         {
-            std::unique_lock<std::mutex> lk(view_refresher->refresh_lock);
+            std::unique_lock<std::mutex> lk(view_refresher->refresher_lock);
             view_refresher->cv.wait_for(
                 lk, view_refresher->fetch_timeout,
                 [this, osd_id] {
                     return view_refresher->stop_requested.load() ||
-                           view_refresher->pending_epoch_osd.load() != osd_id;
+                           view_refresher->pending_fetch_osd.load() != osd_id;
                 });
-            int pending_after = view_refresher->pending_epoch_osd.load();
+            int pending_after = view_refresher->pending_fetch_osd.load();
             bool stop = view_refresher->stop_requested.load();
-            AFENT_LOG(logger, LogLevel::INFO,
+            AGENT_LOG(logger, LogLevel::INFO,
                         "wait for woke: pending=" +
                             std::to_string(pending_after) +
                         " stop=" + std::to_string(stop) +
@@ -850,13 +851,13 @@ private:
                             std::to_string(conn->is_connected()));
             // 检查是否超时 (pending 仍为 osd_id 说明未收到响应)
             if (pending_after == osd_id){
-                time_out = true;
+                timed_out = true;
             }
         }
 
-        if (time_out) {
+        if (timed_out) {
             // ⑥ 超时: 清除 pending, 清除可能已坏的连接, 尝试下一个 DPU
-            view_refresher->pending_epoch_osd.store(-1);
+            view_refresher->pending_fetch_osd.store(-1);
             {
                 std::lock_guard cl(view_refresher->conn_cache_lock);
                 view_refresher->conn_cache.erase(osd_id);
@@ -885,7 +886,7 @@ private:
         return true;
     }
 
-    // --- shutdown ----
+    // --- shutdown ---
 
     void shutdown()
     {
@@ -929,20 +930,20 @@ private:
     OSDMap osdmap;
     AgentLogger *logger = nullptr;
     bool initialized = false;
-    bool starting = false;
+    bool started = false;
     bool messenger_started = false;
     bool monc_started = false;
     bool quiesced = false;
 
     // shard8: 视图刷新
     std::unique_ptr<ViewRefresherState> view_refresher;
-    std::chrono::seconds view_refresh_interval{KV_VIEW_REFRESH_INTERVAL_DEFAULT};
-    std::chrono::seconds view_fetch_timeout{KV_VIEW_FETCH_TIMEOUT_DEFAULT};
+    std::chrono::seconds view_refresh_interval_cfg{KV_VIEW_REFRESH_INTERVAL_DEFAULT};
+    std::chrono::seconds view_fetch_timeout_cfg{KV_VIEW_FETCH_TIMEOUT_DEFAULT};
 }
 
 } // namespace agent
 
-std::unique_ptr<KVClientAgentImpl> create_kv_osd_client_agent()
+std::unique_ptr<KVClientAgentImpl> create_kv_client_agent()
 {
     return std::make_unique<KVOSDClientAgent>();
 }

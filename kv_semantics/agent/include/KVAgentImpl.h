@@ -13,15 +13,15 @@
 
 namespace agent {
 struct KVAgentConfig {
-    uint32_t dpu_id;
-    int32_t osd_id;
+    uint32_t dpu_id = 0;
+    int32_t osd_id = -1;
     std::string mon_host;
     std::string osd_key;
     std::string osd_uuid;
     uint32_t osd_mon_heartbeat_interval = 0;
     uint32_t boot_beacon_delay = 0;
     std::string addrs;
-}
+};
 
 class KVAgentImpl {
 public:
@@ -37,4 +37,4 @@ public:
 
 std::unique_ptr<KVAgentImpl> create_kv_osd_agent();
 
-} // namespace sgent
+} // namespace agent

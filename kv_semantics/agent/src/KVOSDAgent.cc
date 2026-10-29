@@ -46,10 +46,10 @@ namespace agent {
 
 namespace {
 
-// Boot 指数退避函数（编译期宏常量，不通过C ABI配置传入）
-constexpr int BOOT_RETRY_DELAY = 5;     // 秒，Boot 重试初始等待时间
-constexpr int BOOT_RETRY_MAX_DELAY =60; // 秒，Boot 重试等待上限
-// OSD Agent 固定监听端口，配置未指定端口时使用此值
+// Boot 指数退避函数（编译期宏常量, 不通过C ABI配置传入）
+constexpr int BOOT_RETRY_DELAY = 5;     // 秒, Boot 重试初始等待时间
+constexpr int BOOT_RETRY_MAX_DELAY =60; // 秒, Boot 重试等待上限
+// OSD Agent 固定监听端口, 配置未指定端口时使用此值
 // constexpr int KV_OSD_AGENT_DEFAULT_PORT = 6800
 constexpr int KV_OSD_AGENT_DEFAULT_PORT = 65536;
 
@@ -78,7 +78,7 @@ int parse_public_addrs(const std::string& value, entity_addrvec_t *result,
             return -EINVAL;
         }
         address.set_type(entity_addr_t::TYPE_MSGR2);
-        // 配置未指定端口时固定使用 6800，确保 Client Agent 能从 OSDMap
+        // 配置未指定端口时固定使用 6800, 确保 Client Agent 能从 OSDMap
         // 中获取到可连接的地址
         if (address.get_port() == 0) {
             address.set_port(KV_OSD_AGENT_DEFAULT_PORT);
@@ -112,8 +112,8 @@ int parse_public_addrs(const std::string& value, entity_addrvec_t *result,
 
 enum class AgentState {
     DOWN,       // 初始状态 / 已知自身被 MON 标 down
-   BOOT_SENT,   // 已发 MOSDBoot，等待 OSDMap确认
-    ACTIVE,     // MON 已确认 up，周期发 MOSDBeacon
+    BOOT_SENT,  // 已发 MOSDBoot, 等待 OSDMap确认
+    ACTIVE,     // MON 已确认 up, 周期发 MOSDBeacon
 }
 
 class KVOSDMapDispatcher final : public Dispatcher {
@@ -129,7 +129,7 @@ public:
     {
         switch (m->get_type()) {
             case CEPH_MSG_OSD_MAP: {
-                auto *osdmap_msg = static_case<MOSDMap *>(m);
+                auto *osdmap_msg = static_cast<MOSDMap *>(m);
                 AGENT_LOG(logger, ::agent::LogLevel::INFO,
                             "received MOSDMap from " +
                                 std::string(m->get_source().type_str()) + "." +
@@ -151,9 +151,9 @@ public:
                 return handle_osdmap(osdmap_msg);
             }
             case MSG_OSD_PG_CREATE2:
-                return hanle_pg_create(static_cast<MOSDPGCreate2 *>(m));
+                return handle_pg_create(static_cast<MOSDPGCreate2 *>(m));
             default :
-                AGENT_LOG(logger, ::agent::LogLevel:ERROR,
+                AGENT_LOG(logger, ::agent::LogLevel::ERROR,
                             "received unsupported message type=" +
                                 std::to_string(m->get_type()));
                 return false;
@@ -199,7 +199,7 @@ public:
         AGENT_LOG(logger, ::agent::LogLevel::DEBUG,
                     "ms handle fast authentication peer=" +
                         con->get_peer_addr().get_legacy_str() +
-                        " peer_type=" + std:to_string(con->get_peer_type()));
+                        " peer_type=" + std::to_string(con->get_peer_type()));
         // Accept the connection once the authorizer has been verified by
         // MonClient::handle_auth_request.  Returning false here would cause
         // a valid authorizer to be treated as a failure.
@@ -227,7 +227,7 @@ private:
         std::lock_guard l(lock);
 
         if (quiesced) {
-            msd->put();
+            msg->put();
             return true;
         }
 
@@ -270,7 +270,7 @@ private:
         // Invalidate the cached full encoding - the local OSDMap has
         // changed, so any previously encoded full map is stale.
         cached_full.epoch = 0;
-        cached_full.bl.ckear();
+        cached_full.bl.clear();
 
         AGENT_LOG(logger, ::agent::LogLevel::INFO,
                     "received OSD map epoch " +
@@ -335,7 +335,7 @@ private:
             // Client is already up to date (or we have no OSDMap yet).
             reply->newest_map = cur_epoch;
 
-            AGENT_LOG(logger ::agent::LogLevel::DEBUG,
+            AGENT_LOG(logger, ::agent::LogLevel::DEBUG,
                         "compute agent up to date at epoch " +
                             std::to_string(client_epoch));
         } else {
@@ -350,12 +350,12 @@ private:
             }
 
             if (can_incremental) {
-                for (epoch_t e = client_epoch + 1, e <= cur_epoch; ++e) {
+                for (epoch_t e = client_epoch + 1; e <= cur_epoch; ++e) {
                     reply->incremental_maps[e] = cached_incrementals[e];
                 }
                 reply->newest_map = cur_epoch;
 
-                AGENT_LOG(logger ::agent::LogLevel::INFO,
+                AGENT_LOG(logger, ::agent::LogLevel::INFO,
                             "sending incremental OSD map [" +
                                 std::to_string(client_epoch + 1) + ".." +
                                 std::to_string(cur_epoch) + "] to compute agent")
@@ -367,13 +367,13 @@ private:
                 } else {
                     ceph::buffer::list bl;
                     osdmap.encode(bl, CEPH_FEATURES_ALL | CEPH_FEATURES_RESERVED);
-                    reply->maps{cur_epoch} = bl;
+                    reply->maps[cur_epoch] = bl;
                     cached_full.epoch = cur_epoch;
                     cached_full.bl = bl;
                 }
                 reply->newest_map = cur_epoch;
 
-                AGENT_LOG(logger ::agent::LogLevel::INFO,
+                AGENT_LOG(logger, ::agent::LogLevel::INFO,
                             "sending full OSD map epoch " +
                                 std::to_string(cur_epoch) +
                                 " tp compute agent (client had epoch " +
@@ -382,7 +382,7 @@ private:
             }
         }
         
-        AGENT_LOG(logger ::agent::LogLevel::INFO,
+        AGENT_LOG(logger, ::agent::LogLevel::INFO,
                     "sending OSDMap reply to " +
                         req->get_connection()->get_peer_addr().ip_only_to_str() +
                         " reply_maps+" + std::to_string(reply->maps.size()) +
@@ -437,8 +437,8 @@ public:
                 return -EINVAL;
             }
 
-        // 保存完整配置副本，供 mon断链后重建通信层（messenger/monc）时复用.
-        // 切换 DPU IP 时仅更新 addrs 字段，其余保持不变.
+        // 保存完整配置副本, 供 mon断链后重建通信层（messenger/monc）时复用.
+        // 切换 DPU IP 时仅更新 addrs 字段, 其余保持不变.
         saved_config_ = config;
         // 首次 init 时以配置的 addrs 顺序为起点；重新 init（IP切换）时保存
         // current_addrs_ 已被 rotate）不变.
@@ -483,22 +483,22 @@ public:
         }
         int r = cct->_conf.set_val("mon_host", config.mon_host);
         if (r < 0) {
-            return fail_init(r. "failed to configure mon_host");
+            return fail_init(r, "failed to configure mon_host");
         }
         r = cct->_conf.set_val("key", config.osd_key);
         if (r < 0) {
-            return fail_init(r. "failed to configure CephX key");
+            return fail_init(r, "failed to configure CephX key");
         }
         r = cct->_conf.set_val("osd_uuid", config.osd_uuid);
         if (r < 0) {
-            return fail_init(r. "failed to configure osd_uuid");
+            return fail_init(r, "failed to configure osd_uuid");
         }
         // bind hb source IP to get_myaddrs().front()
         r = cct->_conf.set_val("ms_bind_before_connect", "true");
         if (r < 0) {
-            return fail_init(r. "failed to configure ms_bind_before_connect");
+            return fail_init(r, "failed to configure ms_bind_before_connect");
         }
-        ctx->_conf.apply_changes(nullptr);
+        cct->_conf.apply_changes(nullptr);
         common_init_finish(cct.get());
         AGENT_LOG(logger, ::agent::LogLevel::INFO,
                     "Ceph context initialized");
@@ -508,7 +508,7 @@ public:
         poolctx->start(1);
         pool_started = true;
 
-        // 独立于心跳定时器的 MON 连接监控定时器：无论状态机处于何种状态，
+        // 独立于心跳定时器的 MON 连接监控定时器: 无论状态机处于何种状态, 
         // 都周期检查 monc->is_connected(), 一旦发现断链立即触发 DPU IP 切换
         mon_watch_timer = std::make_unique<boost::asio::steady_timer>(
             poolctx->get_io_context());
@@ -546,7 +546,7 @@ public:
             return fail_init(r, "failed to bind messenger");
         }
 
-        // 打印 bind 结果，确认实际绑定的地址和端口
+        // 打印 bind 结果, 确认实际绑定的地址和端口
         {
             auto bound = messenger->get_myaddrs();
             std::string addr_str;
@@ -607,7 +607,7 @@ public:
         // authorizers.  Without this, the first client connection may arrive
         // before the OSD rotating keys are avaliable, causing the auth_server
         // to reject the authorizer and reset the connection.
-        r = mon->wait_auth_rotating(
+        r = monc->wait_auth_rotating(
             KV_AGENT_MON_AUTH_TIMEOUT_SECONDS);
         if (r < 0) {
             return fail_init(r,
@@ -632,9 +632,9 @@ public:
 
         heartbeat_interval = config.osd_mon_heartbeat_interval;
         boot_beacon_delay = std::chrono::seconds(config.boot_beacon_delay);
-        // 退避参数为编译期宏常量 BOOT_RETRY_DELAY/BOOT_RETRY_MAX_DELAY，不从 config 读取
+        // 退避参数为编译期宏常量 BOOT_RETRY_DELAY/BOOT_RETRY_MAX_DELAY, 不从 config 读取
         {
-            std::lock_guard;(state_lock);
+            std::lock_guard l(state_lock);
             initialized = true;
             starting = false;
             // First successful init marks the agent as externally initialized
@@ -681,15 +681,15 @@ public:
         // 状态机初始化
         state = AgentState::DOWN;
         current_retry_delay = std::chrono::seconds{0};
-        // 首次启动 / IP 切换后重启：都要尽快发 boot.
-        // boot_beacon_delay 在切换时被置为 0，保证重新 boot 无 delay.
+        // 首次启动 / IP 切换后重启: 都要尽快发 boot.
+        // boot_beacon_delay 在切换时被置为 0, 保证重新 boot 无 delay.
         if (boot_beacon_delay.count() > 0 && !ip_switch_pending_) {
             arm_boot();
         } else {
             // 直接进入 boot 发送路径（不等待 boot_beacon_delay)
             send_boot();
         }
-        // 启动 MON 连接监控，检测断链并触发 IP 切换
+        // 启动 MON 连接监控, 检测断链并触发 IP 切换
         mon_was_connected_ = false;
         arm_mon_watch();
         AGENT_LOG(logger, ::agent::LogLevel::INFO,
@@ -698,7 +698,7 @@ public:
     }
 
     // 添加 root
-    // CRUSH root创建含参数校验、OSDMap获取，CrushWrapper操作等完整流程
+    // CRUSH root创建含参数校验、OSDMap获取, CrushWrapper操作等完整流程
     // NOLINTBEGIN(huge_method)
     int32_t kv_agent_create_crush_root(char* kvPoolName, uint32_t nameLen, int32_t* osdIdList, uint32_t listSize) override // NOLINT(g.STD.02-cpp)
     {
@@ -710,7 +710,7 @@ public:
         // -------- 连接集群 --------
         // --------使用已认证的 monc --------
         // 查询集群中所有已存在的 OSD
-        // 打点计时：osd ls 查询集群 OSD 列表耗时
+        // 打点计时: osd ls 查询集群 OSD 列表耗时
         const auto t_osd_ls_start = std::chrono::steady_clock::now();
         ceph::bufferlist outbl;
         std::string outs;
@@ -729,19 +729,19 @@ public:
         if (ret < 0) {
             return -1;
         }
-        AGENT_LOG(logger, ::agent::LogLevel::INFO, "ALL " + std::to_string(listSize) + " OSDs verified to exist in cluster");
+        AGENT_LOG(logger, ::agent::LogLevel::INFO, "All " + std::to_string(listSize) + " OSDs verified to exist in cluster");
 
         std::string kvPoolNameString = std::string(kvPoolName);
         std::string rootName = kvPoolNameString + "-root";
         std::string ruleName = kvPoolNameString + "-rule";
 
-        // 打点计时：创建 root bucket 耗时
-        const auto t_root_start - std:: chrono::steady_clock::now();
+        // 打点计时: 创建 root bucket 耗时
+        const auto t_root_start = std:: chrono::steady_clock::now();
         // -------- 1. 创建 root bucket --------
-        ret = mon_command_sync({std::string("{\"perfix\": \"osd crush add-bucket\", \"name\": \"") + rootName + "\", \"type\": \"root\"}"}, &outbl, &outs);
+        ret = mon_command_sync({std::string("{\"prefix\": \"osd crush add-bucket\", \"name\": \"") + rootName + "\", \"type\": \"root\"}"}, &outbl, &outs);
         if (ret < 0) {
             // 检查是否是 root 已存在的情况（EEXIST = 17）
-            // 如果 root 已存在，可继续执行后续操作
+            // 如果 root 已存在, 可继续执行后续操作
             bool root_exists = (outs.find("already exists") != std::string::npos ||
                                 outs.find("桶已存在") != std::string::npos ||
                                 ret == -17);    // EEXIST
@@ -755,23 +755,23 @@ public:
         } else {
             AGENT_LOG(logger, ::agent::LogLevel::INFO, "CRUSH root created: " + outs);
         }
-        // 打点计时：root bucket 创建耗时
+        // 打点计时: root bucket 创建耗时
         AGENT_LOG(logger, ::agent::LogLevel::INFO,
                     "[TIMING] kv_agent_create_crush_root add-bucket elapsed_ms=" +
                     std::to_string(std::chrono::duration_cast<std::chrono::milliseconds>(
                         std::chrono::steady_clock::now() - t_root_start).count()));
-        // 打点计时：创建 rule 耗时
+        // 打点计时: 创建 rule 耗时
         const auto t_rule_start = std::chrono::steady_clock::now();
         // -------- 2. 创建 rule 并绑定到该 root --------
         outbl.clear();
         outs.clear();
-        // 命令格式：ceph osd crush rule create-simple <rule-name> <root> <type>
+        // 命令格式: ceph osd crush rule create-simple <rule-name> <root> <type>
         ret = mon_command_sync({std::string("{\"prefix\": \"osd crush rule create-simple\", \"name\": \"") + ruleName + "\", \"root\": \"" + rootName + "\", \"type\": \"host\"}"}, &outbl, &outs);
         if (ret < 0) {
             bool rule_exists = (outs.find("already exists") != std::string::npos ||
                                 outs.find("规则已存在") != std::string::npos ||
                                 ret == -17);    // 检查是否是 rule 已存在的情况
-            if (rule_exists) {  // 每次都检查一遍，避免出现 root 创建了，但 rule 没创建的情况
+            if (rule_exists) {  // 每次都检查一遍, 避免出现 root 创建了, 但 rule 没创建的情况
                 AGENT_LOG(logger, ::agent::LogLevel::INFO, "CRUSH rule already exists, continuing: " + outs);
             } else {
                 AGENT_LOG(logger, ::agent::LogLevel::ERROR, "Failed to create rule: " + outs);
@@ -780,12 +780,12 @@ public:
         } else {
             AGENT_LOG(logger, ::agent::LogLevel::INFO, "Rule created: " + outs);
         }
-        // 打点计时：rule 创建耗时
+        // 打点计时: rule 创建耗时
         AGENT_LOG(logger, ::agent::LogLevel::INFO,
                     "[TIMING] kv_agent_create_crush_root rule create-simple elapsed_ms=" +
                     std::to_string(std::chrono::duration_cast<std::chrono::milliseconds>(
                         std::chrono::steady_clock::now() - t_rule_start).count()));
-        // 打点计时：moveOsd 将 OSD 移动到 root 耗时
+        // 打点计时: moveOsd 将 OSD 移动到 root 耗时
         const auto t_move_start = std::chrono::steady_clock::now();
         // -------- 3. 将 OSD 移动到该 root --------
         ret = moveOsd(rootName, osdIdList, listSize);
@@ -805,13 +805,13 @@ public:
     }
     // NOLINTEND(huge_method)
 
-    // 删除 CRUSH Root 以及对应 Rule， to do：基于 int32_t* osdList, uint32_t listSize 进行缩容，只有在root为空的情况进行删除。
+    // 删除 CRUSH Root 以及对应 Rule,  to do: 基于 int32_t* osdIdList, uint32_t listSize 进行缩容, 只有在root为空的情况进行删除。
     // CRUSH Root 删除含多层效验、OSDMap同步、CrushWrapper遍历删除等完成流程
     // NOLINTBEGIN(huge_method)
     int32_t kv_agent_delete_crush_root(char* kvPoolName, uint32_t nameLen, int32_t* osdIdList, uint32_t listSize) override  // NOLINT(g.STD.02-cpp)
     {
         // -------- 输入合法性效验 --------
-        if (kvPoolName == nullptr || strnlen(kvPoolNamem, nameLen + 1) != nameLen) {
+        if (kvPoolName == nullptr || strnlen(kvPoolName, nameLen + 1) != nameLen) {
             AGENT_LOG(logger, ::agent::LogLevel::ERROR, "Invalid kvPoolName");
             return -1;
         }
@@ -824,7 +824,7 @@ public:
         ceph::bufferlist outbl;
         std::string outs;
 
-        // -------- 1. 获取 crush dump，查找 root 及其下的 OSD --------
+        // -------- 1. 获取 crush dump, 查找 root 及其下的 OSD --------
         outbl.clear();
         outs.clear();
         int32_t ret = mon_command_sync({R"({"prefix": "osd crush dump"})"}, &outbl, &outs);
@@ -835,7 +835,7 @@ public:
 
         std::string crush_dump_output = outbl.to_str();
 
-        // -------- 2. 解析 crush dump JSON，找到目标 root --------
+        // -------- 2. 解析 crush dump JSON, 找到目标 root --------
         // 查找 root bucket
         size_t root_name_pos = crush_dump_output.find("\"" + rootName + "\"");
         if (root_name_pos == std::string::npos) {
@@ -843,7 +843,7 @@ public:
             return 0;
         }
         
-        // 找到 root 下面的 items 数组，如果上面存在肯定是能看到的
+        // 找到 root 下面的 items 数组, 如果上面存在肯定是能看到的
         size_t items_start = crush_dump_output.find("\"items\"", root_name_pos);
         if (items_start == std::string::npos) {
             AGENT_LOG(logger, ::agent::LogLevel::ERROR, "Failed to find items in crush dump for root " + rootName);
@@ -852,7 +852,7 @@ public:
         
         // 提取 items 数组
         size_t bracket_start = crush_dump_output.find("[", items_start);
-        size_t bracket_end = crush_dump_output.find("]", items_start);
+        size_t bracket_end = crush_dump_output.find("]", bracket_start);
         if (bracket_start == std::string::npos || bracket_end == std::string::npos) {
             AGENT_LOG(logger, ::agent::LogLevel::ERROR, "Failed to parse items array for root " + rootName);
             return -1;
@@ -864,7 +864,7 @@ public:
         size_t item_pos = 0;
         while ((item_pos = items_str.find("\"id\"", item_pos)) != std::string::npos) {
             size_t colon_pos = items_str.find(":", item_pos);
-            size_t num_start = items_str.find_first_of("0123456789", colon_pos);
+            size_t num_start = items_str.find_first_of("0123456789-", colon_pos);
             size_t num_end = items_str.find_first_of(",}]", num_start);
             std::string id_str = items_str.substr(num_start, num_end - num_start);
             try {
@@ -880,14 +880,14 @@ public:
             std::string msg = "OSDs in root " + rootName + ": ";
             for (size_t i = 0; i < osds_in_root.size(); ++i) {
                 if (i > 0) msg += ", ";
-                msg += "osd." + std:to_string(osds_in_root[i]);
+                msg += "osd." + std::to_string(osds_in_root[i]);
             }
             AGENT_LOG(logger, ::agent::LogLevel::DEBUG, msg);
         }
 
         // -------- 3. 验证入参中的 OSD 是否都属于该 root --------
         for (uint32_t i = 0; i < listSize; ++i) {
-            int32_t osd_id = osdList[i];
+            int32_t osd_id = osdIdList[i];
             bool found = false;
             for (size_t j = 0; j < osds_in_root.size(); ++j) {
                 if (osds_in_root[j] == osd_id) {
@@ -899,14 +899,14 @@ public:
                 AGENT_LOG(logger, ::agent::LogLevel::WARNING, "OSD " + std::to_string(osd_id) + " does not belong to root " + rootName + ", cannot remove");
             }
         }
-        AGENT_LOG(logger, ::agent::LogLevel::INFO, "ALL " + std::to_string(listSize) + " OSDs verified");
+        AGENT_LOG(logger, ::agent::LogLevel::INFO, "All " + std::to_string(listSize) + " OSDs verified");
 
         // -------- 4. 从 crush map 中移除传入的 OSD --------
         for (uint32_t i = 0; i < listSize; ++i) {
             outbl.clear();
             outs.clear();
             int32_t osd_id = osdIdList[i];
-            std::string osd_mame = "osd." + std::to_string(osd_id);
+            std::string osd_name = "osd." + std::to_string(osd_id);
             ret = mon_command_sync({std::string("{\"prefix\": \"osd crush remove\", \"name\": \"") + osd_name + "\"}"}, &outbl, &outs);
             if (ret < 0) {
                 AGENT_LOG(logger, ::agent::LogLevel::WARNING, "Warning when removing osd." + std::to_string(osd_id) + ": " + outs);
@@ -915,7 +915,7 @@ public:
             }
         }
         
-        // -------- 5. 重新获取 crush dump，检查 root 是否为空 --------
+        // -------- 5. 重新获取 crush dump, 检查 root 是否为空 --------
         outbl.clear();
         outs.clear();
         ret = mon_command_sync({R"({"prefix": "osd crush dump"})"}, &outbl, &outs);
@@ -927,7 +927,7 @@ public:
         crush_dump_output = outbl.to_str();
         root_name_pos = crush_dump_output.find("\"" + rootName + "\"");
         if (root_name_pos == std::string::npos) {
-            // root 不存在了，直接删除 rule
+            // root 不存在了, 直接删除 rule
             AGENT_LOG(logger, ::agent::LogLevel::INFO, "Root " + rootName + " no longer exists, proceeding to delete rule");
         } else {
             // 再次检查 items 是否为空
@@ -973,7 +973,7 @@ public:
             AGENT_LOG(logger, ::agent::LogLevel::ERROR, "Failed to delete root bucket: " + outs);
             return ret;
         }
-        AGENT_LOG(logger, ::agent::LogLevel::INFO, "Rule bucket deleted: " + outs);
+        AGENT_LOG(logger, ::agent::LogLevel::INFO, "Root bucket deleted: " + outs);
 
         // -------- 清理资源 --------
         return 0;
@@ -999,16 +999,16 @@ public:
 
         ceph::bufferlist outbl;
         std::string outs;
-        // 打点计时：创建 ceph pool 耗时
+        // 打点计时: 创建 ceph pool 耗时
         const auto t_pool_start = std::chrono::steady_clock::now();
         // -------- 创建 ceph pool --------
-        // 命令格式：ceph osd pool create <pool> [<pg_num:int>] [<pgp_num:int>] [<pool_type:replicated|erasure>] [<rule>]
+        // 命令格式: ceph osd pool create <pool> [<pg_num:int>] [<pgp_num:int>] [<pool_type:replicated|erasure>] [<rule>]
         // 创建ceph pool并绑定对应的规则
         int32_t ret = mon_command_sync({std::string("{\"prefix\": \"osd pool create\", \"pool\": \"") + kvnsNameString + "\", \"pg_num\": 4, \"pool_type\": \"replicated\", \"rule\": \"" + ruleName + "\"}"}, &outbl, &outs);
         if (ret < 0) {
-            bool ceph_pool_exists = (outs.find("already exist") != std::string::npos ||
+            bool ceph_pool_exists = (outs.find("already exists") != std::string::npos ||
                                      outs.find("桶已存在") != std::string::npos ||
-                                     ret = -17);    // EEXIST
+                                     ret == -17);    // EEXIST
 
             if (ceph_pool_exists) {
                 AGENT_LOG(logger, ::agent::LogLevel::INFO, "ceph pool already exists, continuing: " + outs);
@@ -1018,11 +1018,11 @@ public:
             }
         }
         AGENT_LOG(logger, ::agent::LogLevel::INFO, "Ceph pool created: " + outs);
-        // 打点计时：ceph pool 创建耗时
+        // 打点计时: ceph pool 创建耗时
         AGENT_LOG(logger, ::agent::LogLevel::INFO,
                     "[TIMING] kv_agent_create_ceph_pool pool create elapsed_ms=" +
                     std::to_string(std::chrono::duration_cast<std::chrono::milliseconds>(
-                    std::chrono:;steady_clock::now() - t_pool_start).count()));
+                    std::chrono::steady_clock::now() - t_pool_start).count()));
         return 0;
     }
 
@@ -1043,7 +1043,7 @@ public:
         // -------- 检查 ceph pool 是否存在 --------
         outbl.clear();
         outs.clear();
-        int32_t ret = mon_command_sync({R"({"prefix": "osd pool is"})"}, &outbl, &outs);
+        int32_t ret = mon_command_sync({R"({"prefix": "osd pool ls"})"}, &outbl, &outs);
         if (ret < 0) {
             AGENT_LOG(logger, ::agent::LogLevel::ERROR, "Failed to query pool list: " + outs);
             return ret;
@@ -1058,10 +1058,10 @@ public:
         AGENT_LOG(logger, ::agent::LogLevel::INFO, "Ceph pool " + kvnsNameString + " exists, proceeding to delete");
 
         // -------- 删除 ceph pool --------
-        // 命令格式：ceph osd pool delete <pool-name> <pool-name> --yes-i-really-really-mean-it
+        // 命令格式: ceph osd pool delete <pool-name> <pool-name> --yes_i_really_really_mean_it
         outbl.clear();
         outs.clear();
-        int32_t ret = mon_command_sync({std::string("{\"prefix\": \"osd pool delete\", \"pool\": \"") + kvnsNameString + "\", \"pool2\": \"" + kvnsNameString + "\", \"yes-i-really-really-mean-it\": true}"}, &outbl, &outs);
+        int32_t ret = mon_command_sync({std::string("{\"prefix\": \"osd pool delete\", \"pool\": \"") + kvnsNameString + "\", \"pool2\": \"" + kvnsNameString + "\", \"yes_i_really_really_mean_it\": true}"}, &outbl, &outs);
         if (ret < 0) {
             AGENT_LOG(logger, ::agent::LogLevel::ERROR, "Failed to delete ceph pool: " + outs);
             return ret;
@@ -1071,16 +1071,16 @@ public:
     }
 
 private:
-    // ---- DPU IP 切换：MON 连接监控 ----
-    // 独立于状态机的定时器，周期检查 monc->is_connected().
-    // 一旦从 connected 变为 disconnected，说明当前 DPU 心跳 IP（myaddrs 第一
-    // 个）不可达，立刻切换下一个 IP 并重新走 BOOT 流程
+    // ---- DPU IP 切换: MON 连接监控 ----
+    // 独立于状态机的定时器, 周期检查 monc->is_connected().
+    // 一旦从 connected 变为 disconnected, 说明当前 DPU 心跳 IP（myaddrs 第一
+    // 个）不可达, 立刻切换下一个 IP 并重新走 BOOT 流程
     void arm_mon_watch()
     {
         if (!mon_watch_timer) {
             return;
         }
-        // 断链轮训间隔与心跳间隔（osd_mon_heartbeat_interval）保持一致：
+        // 断链轮训间隔与心跳间隔（osd_mon_heartbeat_interval）保持一致: 
         // 正常情况下每心跳周期检查一次 MON 连接；断链切换时也按此节奏轮训.
         mon_watch_timer->expires_after(
             std::chrono::seconds(std::max(1, heartbeat_interval)));
@@ -1106,7 +1106,7 @@ private:
             if (monc && monc->is_connected()) {
                 mon_was_connected_ = true;
             } else if (mon_was_connected_ && !ip_switch_pending_) {
-                // 曾经连上过 MON，现在断了：当心跳 IP 不可达，触发切换
+                // 曾经连上过 MON, 现在断了: 当心跳 IP 不可达, 触发切换
                 mon_was_connected_ = false;
                 ip_switch_pending_ = true;
                 need_restart = true;
@@ -1118,7 +1118,7 @@ private:
                         "MON connection lost, switching DPU IP and rebooting");
             // 完整重建（shutdown + re-init）会 stop 并销毁当前 io_context
             // (poolctx). 不能在本回调线程（poolctx 的 io_context 线程）内销毁
-            // 自己所在的 io_context，因此切换到独立线程执行重启，由重启后的
+            // 自己所在的 io_context, 因此切换到独立线程执行重启, 由重启后的
             // start_heartbeat 重新 arm_mon_watch
             std::thread restart_thread([this] {
                 restart_for_ip_switch();
@@ -1132,7 +1132,7 @@ private:
         arm_mon_watch();
     }
 
-    // 将当前 addrs 字符串中的第一个 IP 移到末尾，使第二个 IP 成为第一个.
+    // 将当前 addrs 字符串中的第一个 IP 移到末尾, 使第二个 IP 成为第一个.
     // 返回 false 表示没有可切换的 IP  (列表长度 < 2).
     bool retate_addrs()
     {
@@ -1141,7 +1141,7 @@ private:
         while (begin < current_addrs_.size()) {
             const auto comma = current_addrs_.find(",", begin);
             ips.push_back(current_addrs_.substr(begin, comma - begin));
-            if (comma == std::string::mops) {
+            if (comma == std::string::nops) {
                 break;
             }
             begin = comma + 1;
@@ -1168,14 +1168,14 @@ private:
         return true;
     }
 
-    // 销毁 messenger/monc 等通信层，用新顺序 addrs 重新走 BOOT 流程.
+    // 销毁 messenger/monc 等通信层, 用新顺序 addrs 重新走 BOOT 流程.
     // 重新 init 时 bindv(新顺序 addrs) -> _finish_bind -> set_myaddrs(新顺序)
     // 因此出站心跳源 IP (get_myaddrs().front()) 与 client_ident 上报顺序
-    // 都会切换到新 IP，MON 更新 osdmap 后 client agent 自动连新 IP.
+    // 都会切换到新 IP, MON 更新 osdmap 后 client agent 自动连新 IP.
     // 调用前 current_addrs_ 必须已被 ratate 为新顺序 (见 handle_mon_watch).
     // init() 时单次尝试 (失败返回错误码), 此处循环尝试每个候选 IP 知道成功:
     // 首个候选 IP 认证超时失败后 rotate 到下一个 IP 重新 init, 所有 IP 都
-    // 不可达时也按心跳间隔轮询等待，待 MON 恢复后自动建立连接.
+    // 不可达时也按心跳间隔轮询等待, 待 MON 恢复后自动建立连接.
     void restart_for_ip_switch()
     {
         // 保存当前 logger 引用 (shutdown 后仍有效, logger 由外部持有)
@@ -1259,7 +1259,7 @@ private:
             return;
         }
 
-        // 同步 OSDMap epoch 到 superblock.current_epoch 与 MOSDBoot.version，
+        // 同步 OSDMap epoch 到 superblock.current_epoch 与 MOSDBoot.version, 
         // 两者必须与 MON 当前 osdmap.get_epoch() 一致才能避免 boot 死循环:
         // - MOSDBoot.version (构造函数第二参数 e): MON preprocess_boot 用它与
         //   up_from 比较, 若 version < up_from 则判为"过时 boot", 只回推 OSDMap
@@ -1267,7 +1267,7 @@ private:
         //   导致 agent 永远收不到回复. 原生 OSD (OSD.cc:_send_boot) 传
         //   get_osdmap_epoch().
         // - sb.current_epoch: MON send_latest 的起始 epoch, 用于回推增量 OSDMap.
-        superblock.current_epoch = get_osdmap_epoch;
+        superblock.current_epoch = osdmap_epoch;
 
         auto boot = new MOSDBoot(superblock, osdmap_epoch, 0, boot_addrs, boot_addrs,
                                 boot_addrs, CEPH_FEATURES_ALL);
@@ -1421,7 +1421,7 @@ private:
         if (state != AgentState::ACTIVE) {
             return;
         }
-        send_heartbeat();
+        send_heartbeat(osdmap_epoch);
         arm_heartbeat();
     }
 
@@ -1504,7 +1504,7 @@ private:
             : mtx(m), cv(c), done(d), result(r), result_outs(ru), outs(o) {}
 
         void finish(int r) override {
-            std:;lock_guard<std::mutex> lock(mtx);
+            std::lock_guard<std::mutex> lock(mtx);
             result = r;
             if (outs) *outs = result_outs;
             done = true;
@@ -1541,13 +1541,13 @@ private:
             int32_t osd_id = osdIdList[i];
 
             // 使用 osd crush add 添加 OSD 到 CRUSH map
-            int32_t ret = mon_command_sync({std::string("{\"prefix\": \"osd crush add\", \"id\": ") + std::to_string(osd_id) + ", \"weight\": 1.0 \"arg\": [\"root=" + rootName + "\"]}"}, &outbl, &outs);
+            int32_t ret = mon_command_sync({std::string("{\"prefix\": \"osd crush add\", \"id\": ") + std::to_string(osd_id) + ", \"weight\": 1.0 \"args\": [\"root=" + rootName + "\"]}"}, &outbl, &outs);
 
             if (ret < 0) {
-                AGENT_LOG(logger, ::agent::LogLevel::ERROR, "Failed to add osd." + std:to_string(osd_id) + " to root " + rootName + ": " + outs);
+                AGENT_LOG(logger, ::agent::LogLevel::ERROR, "Failed to add osd." + std::to_string(osd_id) + " to root " + rootName + ": " + outs);
                 return ret;
             } else {
-                AGENT_LOG(logger, ::agent::LogLevel::INFO, "Successfully added osd." + std:to_string(osd_id) + " to root " + rootName + " (via add)");
+                AGENT_LOG(logger, ::agent::LogLevel::INFO, "Successfully added osd." + std::to_string(osd_id) + " to root " + rootName + " (via add)");
             }
 
             // 清理, 为下一次使用准备
@@ -1600,7 +1600,7 @@ private:
                 }
             }
             if (!found) {
-                AGENT_LOG(logger, ::agent::LogLevel::ERROR, "OSD " + std:to_string(osd_id) + " does not exist in cluster");
+                AGENT_LOG(logger, ::agent::LogLevel::ERROR, "OSD " + std::to_string(osd_id) + " does not exist in cluster");
                 return -1;
             }
         }
@@ -1628,14 +1628,14 @@ private:
     bool heartbeat_running = false;
     AgentState state = AgentState::DOWN;
     std::chrono::seconds current_retry_delay{0};    // 0 = 哨兵值, send_boot 中初始化为 BOOT_RETRY_DELAY
-    bool stopping = fasle;
-    bool pool_started = fasle;
-    bool messenger_started = fasle;
-    bool monc_started = fasle;
+    bool stopping = false;
+    bool pool_started = false;
+    bool messenger_started = false;
+    bool monc_started = false;
     int heartbeat_interval = 1;
     static constexpr int jitter_ms_range = 1000;    // 心跳随机抖动时间, 毫秒为单位
     std::mt19937 rng{std::random_device{}()};
-    std::unidoem_int_distribution<int> jitter_dist{-jitter_ms_range, jitter_ms_range};
+    std::uniform_int_distribution<int> jitter_dist{-jitter_ms_range, jitter_ms_range};
     epoch_t osdmap_epoch = 0;
     std::chrono::seconds boot_beacon_delay{0};
     AgentLogger *logger = nullptr;

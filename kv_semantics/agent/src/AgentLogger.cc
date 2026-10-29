@@ -1,5 +1,5 @@
 /*
- * Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All right reserved.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
  * Description: Agent日志模块实现
 */
 
@@ -19,27 +19,22 @@
 #include <system_error>
 #include <vector>
 
-
-
-
-
-
-extern "C" __attribute__((weak)) AgentLogFunc GetAgentLogFun(void)
+extern "C" __attribute__((weak)) AgentLogFunc GetAgentLogFunc(void)
 {
 	return nullptr;
 }
 
 namespace agent {
 
-// 动态获取 GetAgentLogFun 函数指针
+// 动态获取 GetAgentLogFunc 函数指针
 AgentlogFunc get_agentlog_func_impl(void)
 {
-	return GetAgentLogFun();
+	return GetAgentLogFunc();
 }
 
-namespace{
+namespace {
 
-bool is_permission_error(const std::error_code& code)
+bool is_permission_error(const std::error_code& error)
 {
 	return error == std::errc::permission_denied ||
 		error == std::errc::operation_not_permitted;
@@ -60,10 +55,10 @@ std::string current_time()
 {
 	const auto now = std::chrono::system_clock::now();
 	const std::time_t value = std::chrono::system_clock::to_time_t(now);
-	std::tm locol_time{};
-	locoltime_r(&value, &locol_time);
+	std::tm local_time{};
+	localtime_r(&value, &local_time);
 	std::ostringstream out;
-	out << std::put_time(&locol_time, "%Y-%m-%d %H:%M:%S");
+	out << std::put_time(&local_time, "%Y-%m-%d %H:%M:%S");
 	return out.str();
 }
 
@@ -71,7 +66,7 @@ std::string format_line(LogLevel level, const char *module,
 				const char *interface, const std::string& message)
 {
 	return "[" + std::string(log_level_name(level)) + "][" + current_time() +
-		"][" + module_basename(module) + "][" + interface + "]" + message;
+		"][" + module_basename(module) + "][" + interface + "] " + message;
 }
 
 } // namespace
@@ -87,11 +82,11 @@ const char *log_level_name(LogLevel level)
     return "ERROR";
 }
 
-// 日志初始化需要处理多种目录/权限异常分支，复杂度不可避免
+// 日志初始化需要处理多种目录/权限异常分支, 复杂度不可避免
 // NOLINTBEGIN(huge_method, huge_cyclomatic_complexity)
-int AgentLogger::init(const chat *base_dir, const std::string& component)
+int AgentLogger::init(const char *base_dir, const std::string& component)
 {
-    if (output.isopen()) {
+    if (output.is_open()) {
         output.close();
     }
     output.clear();
@@ -123,7 +118,7 @@ int AgentLogger::init(const chat *base_dir, const std::string& component)
     if (!std::filesystem::is_directory(base_status)) {
         AGENT_LOG(this, ::agent::LogLevel::ERROR,
                             "log path is not a directory: " + base_directory.string());
-        return AGENT_LOG_ERR_PATH_NOT_DIRECTORY
+        return AGENT_LOG_ERR_PATH_NOT_DIRECTORY;
     }
 
     const auto directory = base_directory / component;
@@ -160,7 +155,7 @@ int AgentLogger::init(const chat *base_dir, const std::string& component)
 }
 // NOLINTEND(huge_method, huge_cyclomatic_complexity)
 
-// 日志轮转逻辑需遍历+排序+清理+创建，分支较多
+// 日志轮转逻辑需遍历+排序+清理+创建, 分支较多
 // NOLINTBEGIN(huge_method, huge_cyclomatic_complexity)
 int AgentLogger::open_next_log(const std::filesystem::path& directory,
                               const std::string& component)
@@ -170,11 +165,11 @@ int AgentLogger::open_next_log(const std::filesystem::path& directory,
     std::error_code error;
     for (const auto& entry : std::filesystem::directory_iterator(directory, error)) {
         std::smatch match;
-        const auto name = entry.path(),filename().string();
+        const auto name = entry.path().filename().string();
         if (entry.is_regular_file() &&
-                std::regex_match(name.cbegin(), name.cend, match, pattern)) {
+                std::regex_match(name.cbegin(), name.cend(), match, pattern)) {
             try {
-                log.emplace_back(std::stoull(match[1].str()), entry.path());
+                logs.emplace_back(std::stoull(match[1].str()), entry.path());
             } catch (const std::exception&) {
                 // Ignore names whose numeric suffix cannot be represented.
             }
@@ -211,7 +206,7 @@ int AgentLogger::open_next_log(const std::filesystem::path& directory,
         logs.erase(logs.begin());
     }
 
-    const auto path = directory / (component + "log." + std::to_string(next));
+    const auto path = directory / (component + ".log." + std::to_string(next));
     output.open(path, std::ios::out | std::ios::trunc);
     if (!output) {
         const int error_number = errno ? errno : EIO;
@@ -231,7 +226,7 @@ void AgentLogger::log(LogLevel level, const char *module,
 {
     std::lock_guard guard(lock);
     std::ostream& console = level == LogLevel::ERROR ? std::cerr : std::cout;
-    const std::string line = fotmat_line(level, module, interface, message);
+    const std::string line = format_line(level, module, interface, message);
     console << line << std::endl;
     // to file (if base_dir = nullptr/""/dir not exist, will not write to file)
     if (output) {
@@ -240,7 +235,7 @@ void AgentLogger::log(LogLevel level, const char *module,
 }
 
 void log(AgentLogger *logger, LogLevel level, const char *module,
-                 const char *interface, const std::string& ,message)
+                 const char *interface, const std::string& message)
 {
     // to file & console
     if (logger) {
@@ -253,4 +248,4 @@ void log(AgentLogger *logger, LogLevel level, const char *module,
     console << format_line(level, module, interface, message) << std::endl;
 }
 
-} //namespace agent
+} // namespace agent

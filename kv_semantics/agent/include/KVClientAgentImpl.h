@@ -1,7 +1,10 @@
 /*
-* Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
-* Description: KV Client Agent 抽象实现头文件
+ * Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
+ * Description: KV Client Agent 抽象实现头文件
 */
+
+// -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:t -*-
+// vim: ts=8 sw=2 smartttab
 
 #pragma once
 

@@ -15,7 +15,7 @@
 #define KV_AGENT_EXPORT
 #endif
 
-#ifdef __cpluspuls
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -25,7 +25,7 @@ typedef struct kv_osd_agent_config {
     uint32_t dpu_id;
     const char *mon_host;
     int32_t osd_id;
-    // Raw CephX secret (for example, "AQ...==", not a keyring file path).
+    // Raw CephX secret (for example, "AQ...=="), not a keyring file path.
     const char *osd_keyring;
     const char *osd_uuid;
     uint32_t osd_mon_heartbeat_interval;
@@ -50,6 +50,6 @@ KV_AGENT_EXPORT int32_t kv_agent_create_crush_root(kv_agent_handle *agent, char*
 KV_AGENT_EXPORT int32_t kv_agent_delete_crush_root(kv_agent_handle *agent, char* kvPoolName, uint32_t nameLen, int32_t* osdIdList, uint32_t listSize);
 KV_AGENT_EXPORT int32_t kv_agent_create_ceph_pool(kv_agent_handle *agent, char* kvPoolName, uint32_t kvPoolLen, char* kvnsName, uint32_t kvnsLen);
 KV_AGENT_EXPORT int32_t kv_agent_delete_ceph_pool(kv_agent_handle *agent, char* kvnsName, uint32_t nameLen);
-#ifdef __cpluspuls
+#ifdef __cplusplus
 }
 #endif

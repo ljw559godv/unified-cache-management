@@ -1,7 +1,10 @@
 /*
-* Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
-* Description: KV Client Agent 头文件
+ * Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
+ * Description: KV Client Agent 头文件
 */
+
+// -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:t -*-
+// vim: ts=8 sw=2 smartttab
 
 #pragma once
 
@@ -12,14 +15,14 @@
 
 namespace agent {
 
-#define KV_VIEW_REFRESH_INTERVAL_DEFAULT 30 /* 视图刷新周期默认值（秒） */
-#define KV_VIEW_FETCH_TIMEOUT_DEFAULT 10 /* 单次拉取超时默认值（秒） */
+#define KV_VIEW_REFRESH_INTERVAL_DEFAULT 30 /* 视图刷新周期默认值(秒) */
+#define KV_VIEW_FETCH_TIMEOUT_DEFAULT    10 /* 单次拉取超时默认值(秒) */
 
 struct KVClientAgentConfig {
     std::string mon_host;
     std::string client_name;
     std::string client_key;
-    // 视图刷新配置，可选参数，0表示使用默认值
+    // 视图刷新配置, 可选参数, 0表示使用默认值
     int view_refresh_interval = KV_VIEW_REFRESH_INTERVAL_DEFAULT;
     int view_fetch_timeout = KV_VIEW_FETCH_TIMEOUT_DEFAULT;
 };

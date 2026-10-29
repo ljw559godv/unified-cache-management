@@ -71,7 +71,7 @@ std::vector<KVClientNodeView> KVClientAgent::get_view() const
 }
 
 std::vector<KVClientNodeView> KVClientAgent::get_view_by_ns(
-    const std:string& ns, bool up, bool in) const
+    const std::string& ns, bool up, bool in) const
 {
     if (!private_impl || !private_impl->impl) {
         return {};
@@ -80,7 +80,7 @@ std::vector<KVClientNodeView> KVClientAgent::get_view_by_ns(
 }
 
 std::vector<KVClientNodeView> KVClientAgent::get_up_in_by_ns(
-    const std:string& ns) const
+    const std::string& ns) const
 {
     if (!private_impl || !private_impl->impl) {
         return {};
@@ -89,7 +89,7 @@ std::vector<KVClientNodeView> KVClientAgent::get_up_in_by_ns(
 }
 
 std::vector<KVClientNodeView> KVClientAgent::get_down_in_by_ns(
-    const std:string& ns) const
+    const std::string& ns) const
 {
     if (!private_impl || !private_impl->impl) {
         return {};
@@ -98,7 +98,7 @@ std::vector<KVClientNodeView> KVClientAgent::get_down_in_by_ns(
 }
 
 std::vector<KVClientNodeView> KVClientAgent::get_up_out_by_ns(
-    const std:string& ns) const
+    const std::string& ns) const
 {
     if (!private_impl || !private_impl->impl) {
         return {};
@@ -107,7 +107,7 @@ std::vector<KVClientNodeView> KVClientAgent::get_up_out_by_ns(
 }
 
 std::vector<KVClientNodeView> KVClientAgent::get_down_out_by_ns(
-    const std:string& ns) const
+    const std::string& ns) const
 {
     if (!private_impl || !private_impl->impl) {
         return {};
@@ -124,7 +124,7 @@ std::vector<KVClientNodeView> KVClientAgent::get_in() const
 }
 
 std::vector<KVClientNodeView> KVClientAgent::get_in_by_ns(
-    const std:string& ns) const
+    const std::string& ns) const
 {
     if (!private_impl || !private_impl->impl) {
         return {};
@@ -132,7 +132,7 @@ std::vector<KVClientNodeView> KVClientAgent::get_in_by_ns(
     return private_impl->impl->get_in_by_ns(ns);
 }
 
-std::vector<KVClientNodeView> KVClientAgent::get_all_ns_name() const
+std::vector<std::string> KVClientAgent::get_all_ns_name() const
 {
     if (!private_impl || !private_impl->impl) {
         return {};
