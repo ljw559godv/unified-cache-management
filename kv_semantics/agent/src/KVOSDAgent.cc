@@ -73,7 +73,7 @@ int parse_public_addrs(const std::string& value, entity_addrvec_t *result,
         if (!address.parse(token) || !address.is_ip()) {
             if (logger) {
                 AGENT_LOG(logger, ::agent::LogLevel::ERROR,
-                              "parse public addrs: failed to parse '" + token + "'");
+                              "parse_public_addrs: failed to parse '" + token + "'");
             }
             return -EINVAL;
         }
@@ -85,7 +85,7 @@ int parse_public_addrs(const std::string& value, entity_addrvec_t *result,
         }
         if (logger) {
             AGENT_LOG(logger, ::agent::LogLevel::INFO,
-                        "parse public addrs: token='" + token +
+                        "parse_public_addrs: token='" + token +
                             "' parsed=" + address.get_legacy_str() +
                             " type=" + std::to_string(address.get_type()) +
                             " port=" + std::to_string(address.get_port()) +
@@ -262,7 +262,7 @@ private:
                 osdmap.apply_incremental(incremental);
 
                 // Cache the raw incremental bufferlist for serving Compute
-                // Agent requesrs with incremental responses.
+                // Agent requests with incremental responses.
                 cached_incrementals[e] = inc->second;
             }
         }
@@ -360,7 +360,7 @@ private:
                                 std::to_string(client_epoch + 1) + ".." +
                                 std::to_string(cur_epoch) + "] to compute agent");
             } else {
-                // Full fallback: send the comlete OSDMap encoding.
+                // Full fallback: send the complete OSDMap encoding.
                 if (cached_full.epoch == cur_epoch && cached_full.bl.length() != 0) {
                     // Reuse the cached full encoding.
                     reply->maps[cur_epoch] = cached_full.bl;
@@ -405,7 +405,7 @@ private:
     bool quiesced = false;
 
     // Cached incremental maps received from MON (epoch -> raw buffer).
-    // Used to build incremental responses fro Compute Agent requests.
+    // Used to build incremental responses for Compute Agent requests.
     std::map<epoch_t, ceph::buffer::list> cached_incrementals;
 
     // Cached full OSDMap encoding to avoid repeated encode() calls;
@@ -654,7 +654,7 @@ public:
         return externally_initialized_;
     }
 
-    // after MOSDBoot sent, and revieved OSDMap from MON will the hb start.
+    // after MOSDBoot sent, and revived OSDMap from MON will the hb start.
     int start_heartbeat() override
     {
         std::lock_guard l(state_lock);
@@ -1173,7 +1173,7 @@ private:
     // 因此出站心跳源 IP (get_myaddrs().front()) 与 client_ident 上报顺序
     // 都会切换到新 IP, MON 更新 osdmap 后 client agent 自动连新 IP.
     // 调用前 current_addrs_ 必须已被 ratate 为新顺序 (见 handle_mon_watch).
-    // init() 时单次尝试 (失败返回错误码), 此处循环尝试每个候选 IP 知道成功:
+    // init() 时单次尝试 (失败返回错误码), 此处循环尝试每个候选 IP 直到成功:
     // 首个候选 IP 认证超时失败后 rotate 到下一个 IP 重新 init, 所有 IP 都
     // 不可达时也按心跳间隔轮询等待, 待 MON 恢复后自动建立连接.
     void restart_for_ip_switch()

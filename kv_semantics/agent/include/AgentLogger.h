@@ -147,13 +147,13 @@ void log(AgentLogger *logger, LogLevel level, const char *module,
 // NOLINTBEGIN(g.PRE.06-cpp)
 #define AGENT_LOG(logger, level, message) \
     do { \
-        ::AgentlogFunc _agentlog = ::agent::get_agentlog_func_impl(); \
-        if (_agentlog) { \
+        ::AgentlogFunc _agentLog = ::agent::get_agentlog_func_impl(); \
+        if (_agentLog) { \
             int _log_level = (level) == ::agent::LogLevel::ERROR ? LOG_ERR : \
                              (level) == ::agent::LogLevel::WARNING ? LOG_WARNING : \
                              (level) == ::agent::LogLevel::DEBUG ? LOG_DEBUG : LOG_INFO; \
             std::string _log_msg = (message); \
-            _agentlog(PID_KVCACHE_POOL, _log_level, (char *)_AGENT_FILENAME_, __LINE__, __func__, \
+            _agentLog(PID_KVCACHE_POOL, _log_level, (char *)_AGENT_FILENAME_, __LINE__, __func__, \
                    LOG_ID_KVCACHE_POOL, _log_msg.c_str()); \
         } else { \
             ::agent::log((logger), (level), __AGENT_FILENAME__, __func__, (message)); \

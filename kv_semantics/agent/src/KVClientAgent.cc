@@ -3,6 +3,9 @@
 * Description: KV Client Agent 实现
 */
 
+// -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:t -*-
+// vim: ts=8 sw=2 smarttab
+
 #include "KVClientAgent.h"
 #include "AgentLogger.h"
 #include "KVClientAgentImpl.h"

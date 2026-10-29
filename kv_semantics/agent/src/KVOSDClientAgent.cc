@@ -13,7 +13,6 @@
 #include <cerrno>
 #include <chrono>
 #include <condition_variable>
-#include <cstdint>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -225,7 +224,7 @@ public:
         std::set<int> roots;
         osdmap.crush->find_takes_by_rule(rule_id, &roots);
         if (roots.empty()) {
-            AGENT_LOG(logger, LogLevel::WARNING, "ns view: no crush roots for rule: " + std::to_string(rule_id));
+            AGENT_LOG(logger, LogLevel::WARNING, "ns view: no crush roots for rule " + std::to_string(rule_id));
             return result;
         }
 
@@ -330,7 +329,7 @@ public:
         osdmap.crush->find_takes_by_rule(rule_id, &roots);
         if (roots.empty()) {
             AGENT_LOG(logger, LogLevel::WARNING,
-                        "get_in_by_ns: no crush roots for rule: " +
+                        "get_in_by_ns: no crush roots for rule " +
                         std::to_string(rule_id));
             return result;
         }
@@ -881,7 +880,7 @@ private:
         // ⑦ 收到响应 (ms_dispatch 已在 handle_osdmap_message 中 apply +
         //    清除 pending + cv.notify_all)
         AGENT_LOG(logger, LogLevel::DEBUG,
-                    " view fetch from OSD " + std::to_string(osd_id) + " succeeded");
+                    "view fetch from OSD " + std::to_string(osd_id) + " succeeded");
         return true;
     }
 
