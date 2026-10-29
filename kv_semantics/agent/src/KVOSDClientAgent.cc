@@ -116,7 +116,7 @@ public:
             return r;
         }
         messenger.reset(
-            Messenger::create_client_messenger(context.get(), "kv_client_agent"));
+            Messenger::create_client_messenger(context.get(), "kv-client-agent"));
         if (!messenger) {
             return -ENOMEM;
         }
@@ -321,7 +321,7 @@ public:
         int64_t pool_id = osdmap.lookup_pg_pool_name(ns);
         if (pool_id < 0) {  
             AGENT_LOG(logger, LogLevel::WARNING,
-                        "get in by ns: pool name not found: " + ns);
+                        "get_in_by_ns: pool name not found: " + ns);
             return result;
         }
 
@@ -330,7 +330,7 @@ public:
         osdmap.crush->find_takes_by_rule(rule_id, &roots);
         if (roots.empty()) {
             AGENT_LOG(logger, LogLevel::WARNING,
-                        "get in by ns: no crush roots for rule: " +
+                        "get_in_by_ns: no crush roots for rule: " +
                         std::to_string(rule_id));
             return result;
         }
@@ -442,7 +442,7 @@ private:
         int osd_id = view_refresher->pending_fetch_osd.load();
         if (osd_id < 0) return;
         AGENT_LOG(logger, LogLevel::WARNING,
-                    "connection to OSD" + std::to_string(osd_id) +
+                    "connection to OSD " + std::to_string(osd_id) +
                     " reset/refused (peer" +
                     c->get_peer_addr().ip_only_to_str() + ")");
         view_refresher->pending_fetch_osd.store(-1);
@@ -687,7 +687,7 @@ private:
             AGENT_LOG(logger, LogLevel::INFO,
                         "UP IN OSD " + std::to_string(osd_id) +
                         " first_dpu_ip=" + addrs.v[0].get_legacy_str() +
-                        " (total addrs:)" +
+                        " (total addrs: " +
                             std::to_string(addrs.v.size()) + ")");
             
             dpu_list.push_back(osd_id);
@@ -786,13 +786,13 @@ private:
         auto conn = get_or_create_connection(osd_id);
         if (!conn) {
             AGENT_LOG(logger, LogLevel::WARNING,
-                        "failed to connection to OSD " + std::to_string(osd_id) +
+                        "failed to connect to OSD " + std::to_string(osd_id) +
                         ", trying next");
             return false;
         }
 
         AGENT_LOG(logger, LogLevel::DEBUG,
-                    "fetch view from dpu OSD " + std::to_string(osd_id) +
+                    "fetch_view_from_dpu: OSD " + std::to_string(osd_id) +
                     " conn=" + std::to_string(
                         reinterpret_cast<uintptr_t>(conn.get())) +
                     " peer=" + conn->get_peer_addr().ip_only_to_str() +
@@ -842,7 +842,7 @@ private:
             int pending_after = view_refresher->pending_fetch_osd.load();
             bool stop = view_refresher->stop_requested.load();
             AGENT_LOG(logger, LogLevel::INFO,
-                        "wait for woke: pending=" +
+                        "wait_for woke: pending=" +
                             std::to_string(pending_after) +
                         " stop=" + std::to_string(stop) +
                         " osd_id=" + std::to_string(osd_id) +
@@ -881,7 +881,7 @@ private:
         // ⑦ 收到响应 (ms_dispatch 已在 handle_osdmap_message 中 apply +
         //    清除 pending + cv.notify_all)
         AGENT_LOG(logger, LogLevel::DEBUG,
-                    " view fetch from OSD" + std::to_string(osd_id) + " succeeded");
+                    " view fetch from OSD " + std::to_string(osd_id) + " succeeded");
         return true;
     }
 

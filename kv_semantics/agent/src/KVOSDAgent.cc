@@ -114,7 +114,7 @@ enum class AgentState {
     DOWN,       // 初始状态 / 已知自身被 MON 标 down
     BOOT_SENT,  // 已发 MOSDBoot, 等待 OSDMap确认
     ACTIVE,     // MON 已确认 up, 周期发 MOSDBeacon
-}
+};
 
 class KVOSDMapDispatcher final : public Dispatcher {
 public:
@@ -143,7 +143,7 @@ public:
                 if (osdmap_msg->maps.empty() && osdmap_msg->incremental_maps.empty()
                     && osdmap_msg->get_data_len() > 0) {
                     AGENT_LOG(logger, ::agent::LogLevel::INFO,
-                                "identifed as OSDMap pull request from " +
+                                "identified as OSDMap pull request from " +
                                     std::string(m->get_source().type_str()) + "." +
                                     std::to_string(m->get_source().num()));
                     return handle_get_osdmap_request(osdmap_msg);
@@ -197,7 +197,7 @@ public:
     bool ms_handle_fast_authentication(Connection *con) override
     {
         AGENT_LOG(logger, ::agent::LogLevel::DEBUG,
-                    "ms handle fast authentication peer=" +
+                    "ms_handle_fast_authentication peer=" +
                         con->get_peer_addr().get_legacy_str() +
                         " peer_type=" + std::to_string(con->get_peer_type()));
         // Accept the connection once the authorizer has been verified by
@@ -274,7 +274,7 @@ private:
 
         AGENT_LOG(logger, ::agent::LogLevel::INFO,
                     "received OSD map epoch " +
-                        std::to_string(osdmap.get_epoch()) + " up" +
+                        std::to_string(osdmap.get_epoch()) + " up " +
                         std::to_string(osdmap.get_num_up_osds()) + "/" +
                         std::to_string(osdmap.get_num_osds()));
         // We should check osdmap.is_up(osd_id) because if this osd was marked down by
@@ -376,7 +376,7 @@ private:
                 AGENT_LOG(logger, ::agent::LogLevel::INFO,
                             "sending full OSD map epoch " +
                                 std::to_string(cur_epoch) +
-                                " tp compute agent (client had epoch " +
+                                " to compute agent (client had epoch " +
                                 std::to_string(client_epoch) +
                                 ", incremental not available)");
             }
@@ -385,7 +385,7 @@ private:
         AGENT_LOG(logger, ::agent::LogLevel::INFO,
                     "sending OSDMap reply to " +
                         req->get_connection()->get_peer_addr().ip_only_to_str() +
-                        " reply_maps+" + std::to_string(reply->maps.size()) +
+                        " reply_maps=" + std::to_string(reply->maps.size()) +
                         " reply_incremental_maps=" +
                             std::to_string(reply->incremental_maps.size()) +
                         " newest_map=" + std::to_string(reply->newest_map));
@@ -440,7 +440,7 @@ public:
         // 保存完整配置副本, 供 mon断链后重建通信层（messenger/monc）时复用.
         // 切换 DPU IP 时仅更新 addrs 字段, 其余保持不变.
         saved_config_ = config;
-        // 首次 init 时以配置的 addrs 顺序为起点；重新 init（IP切换）时保存
+        // 首次 init 时以配置的 addrs 顺序为起点; 重新 init（IP切换）时保存
         // current_addrs_ 已被 rotate）不变.
         if (!reinitializing_) {
             current_addrs_ = config.addrs;
@@ -721,7 +721,7 @@ public:
                     std::to_string(std::chrono::duration_cast<std::chrono::milliseconds>(
                         t_osd_ls_end - t_osd_ls_start).count()));
         if (ret < 0) {
-            AGENT_LOG(logger, ::agent::LogLevel::ERROR, "Failed to query OSD list: ret=" + std::to_string(ret) + " outs" + outs);
+            AGENT_LOG(logger, ::agent::LogLevel::ERROR, "Failed to query OSD list: ret=" + std::to_string(ret) + " outs=" + outs);
             return ret;
         }
         std::string osd_list_str = outbl.to_str();
@@ -1061,7 +1061,7 @@ public:
         // 命令格式: ceph osd pool delete <pool-name> <pool-name> --yes_i_really_really_mean_it
         outbl.clear();
         outs.clear();
-        int32_t ret = mon_command_sync({std::string("{\"prefix\": \"osd pool delete\", \"pool\": \"") + kvnsNameString + "\", \"pool2\": \"" + kvnsNameString + "\", \"yes_i_really_really_mean_it\": true}"}, &outbl, &outs);
+        ret = mon_command_sync({std::string("{\"prefix\": \"osd pool delete\", \"pool\": \"") + kvnsNameString + "\", \"pool2\": \"" + kvnsNameString + "\", \"yes_i_really_really_mean_it\": true}"}, &outbl, &outs);
         if (ret < 0) {
             AGENT_LOG(logger, ::agent::LogLevel::ERROR, "Failed to delete ceph pool: " + outs);
             return ret;
@@ -1081,7 +1081,7 @@ private:
             return;
         }
         // 断链轮训间隔与心跳间隔（osd_mon_heartbeat_interval）保持一致: 
-        // 正常情况下每心跳周期检查一次 MON 连接；断链切换时也按此节奏轮训.
+        // 正常情况下每心跳周期检查一次 MON 连接; 断链切换时也按此节奏轮训.
         mon_watch_timer->expires_after(
             std::chrono::seconds(std::max(1, heartbeat_interval)));
         mon_watch_timer->async_wait(
@@ -1139,7 +1139,7 @@ private:
         std::vector<std::string> ips;
         size_t begin = 0;
         while (begin < current_addrs_.size()) {
-            const auto comma = current_addrs_.find(",", begin);
+            const auto comma = current_addrs_.find(',', begin);
             ips.push_back(current_addrs_.substr(begin, comma - begin));
             if (comma == std::string::npos) {
                 break;
@@ -1148,7 +1148,7 @@ private:
         }
         if (ips.size() < 2) {
             AGENT_LOG(logger, ::agent::LogLevel::WARNING,
-                        "cannot switch DPU IP: only" + 
+                        "cannot switch DPU IP: only " + 
                         std::to_string(ips.size()) + " addr(s) configured");
             return false;
         }
@@ -1283,7 +1283,7 @@ private:
                 addr_str += boot_addrs.v[i].get_legacy_str();
             }
             AGENT_LOG(logger, ::agent::LogLevel::INFO,
-                        "send_boot: osd_id+" + std::to_string(superblock.whoami) + 
+                        "send_boot: osd_id=" + std::to_string(superblock.whoami) + 
                         " epoch=" + std::to_string(osdmap_epoch) +
                         " boot_addrs=[" + addr_str + "]");
         }
@@ -1640,7 +1640,7 @@ private:
     std::chrono::seconds boot_beacon_delay{0};
     AgentLogger *logger = nullptr;
 
-    // -------- DPI IP 切换 feature 状态 --------
+    // -------- DPU IP 切换 feature 状态 --------
     KVAgentConfig saved_config_;                // init时保存的完整配置副本
     std::string current_addrs_;                 // 当前 addrs 字符串 (可被 rotate)
     std::unique_ptr<boost::asio::steady_timer> mon_watch_timer; // MON断链监控定时器
