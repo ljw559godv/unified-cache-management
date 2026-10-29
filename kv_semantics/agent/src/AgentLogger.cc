@@ -138,7 +138,7 @@ int AgentLogger::init(const char *base_dir, const std::string& component)
         std::filesystem::create_directory(directory, error);
         if (error) {
             AGENT_LOG(this, ::agent::LogLevel::ERROR,
-                                "failed to create component log directory" +
+                                "failed to create component log directory " +
                                     directory.string() + ": " + error.message());
             if (is_permission_error(error)) {
                 return AGENT_LOG_ERR_PERMISSION_DENIED;

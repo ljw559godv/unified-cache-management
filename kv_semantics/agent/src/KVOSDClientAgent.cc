@@ -404,8 +404,8 @@ public:
     {
         AGENT_LOG(logger, LogLevel::INFO,
                     "ms_dispatch: type=" + std::to_string(message->get_type()) +
-                    " name: " + std::to_string(message->get_type_name()) +
-                    " src: " + std::to_string(message->get_source().type_str()) + "." + std::to_string(message->get_source().num()) +
+                    " name: " + std::string(message->get_type_name()) +
+                    " src: " + std::string(message->get_source().type_str()) + "." + std::to_string(message->get_source().num()) +
                     " pending_fetch_osd=" + 
                         std::to_string(view_refresher ? 
                             view_refresher->pending_fetch_osd.load() : -2));
@@ -415,7 +415,7 @@ public:
         AGENT_LOG(logger, LogLevel::WARNING,
                     "ms_dispatch: unexpected message type=" +
                     std::to_string(message->get_type()) +
-                    " name=" + std::to_string(message->get_type_name()));
+                    " name=" + std::string(message->get_type_name()));
         return false;
     }
 
@@ -497,7 +497,7 @@ private:
         int source_osd = from_dpu ? source_name.num() : -1;
 
         AGENT_LOG(logger, LogLevel::INFO,
-                    "handle osdmap message: src=" + std::string(source_name.type_str()) + "." + std::to_string(source_name.num()) +
+                    "handle_osdmap_message: src=" + std::string(source_name.type_str()) + "." + std::to_string(source_name.num()) +
                     " from_dpu=" + std::to_string(from_dpu) +
                     " source_osd=" + std::to_string(source_osd) +
                     " maps=" + std::to_string(message->maps.size()) +
@@ -524,7 +524,7 @@ private:
         message->put();
 
         AGENT_LOG(logger, LogLevel::INFO,
-                    "handle osdmap message: applied, old_epoch=" +
+                    "handle_osdmap_message: applied, old_epoch=" +
                     std::to_string(old_epoch) +
                     " new_epoch=" + std::to_string(new_epoch) +
                     " from_dpu=" + std::to_string(from_dpu));
@@ -535,13 +535,13 @@ private:
             int expected = source_osd;
             if (view_refresher->pending_fetch_osd.compare_exchange_strong(expected, -1)) {
                 AGENT_LOG(logger, LogLevel::INFO,
-                            "handle osdmap message: CAS succeeded, "
+                            "handle_osdmap_message: CAS succeeded, "
                             "clearing pending_fetch_osd and notifying");
                 std::lock_guard rl(view_refresher->refresher_lock);
                 view_refresher->cv.notify_all();
             } else {
                 AGENT_LOG(logger, LogLevel::WARNING,
-                            "handle osdmap message: CAS FAILED, "
+                            "handle_osdmap_message: CAS FAILED, "
                             " (expected pending=" + std::to_string(source_osd) +
                             ", actual=" +
                                 std::to_string(expected) +
@@ -800,7 +800,7 @@ private:
                         std::to_string(conn->is_connected()));
 
         // ② 获取当前 epoch
-        epoch_t epoch;
+        epoch_t current_epoch;
         {
             std::lock_guard guard(lock);
             current_epoch = osdmap.get_epoch();
@@ -938,7 +938,7 @@ private:
     std::unique_ptr<ViewRefresherState> view_refresher;
     std::chrono::seconds view_refresh_interval_cfg{KV_VIEW_REFRESH_INTERVAL_DEFAULT};
     std::chrono::seconds view_fetch_timeout_cfg{KV_VIEW_FETCH_TIMEOUT_DEFAULT};
-}
+};
 
 } // namespace agent
 
@@ -947,4 +947,4 @@ std::unique_ptr<KVClientAgentImpl> create_kv_client_agent()
     return std::make_unique<KVOSDClientAgent>();
 }
 
-}   // namespace agent
+} // namespace agent

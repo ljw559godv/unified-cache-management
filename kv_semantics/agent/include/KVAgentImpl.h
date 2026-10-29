@@ -33,7 +33,7 @@ public:
     virtual int32_t kv_agent_delete_crush_root(char* kvPoolName, uint32_t nameLen, int32_t* osdIdList, uint32_t listSize) = 0;
     virtual int32_t kv_agent_create_ceph_pool(char* kvPoolName, uint32_t kvPoolLen, char* kvnsName, uint32_t kvnsLen) = 0;
     virtual int32_t kv_agent_delete_ceph_pool(char* kvnsName, uint32_t nameLen) = 0;
-}
+};
 
 std::unique_ptr<KVAgentImpl> create_kv_osd_agent();
 

@@ -454,7 +454,7 @@ public:
                         "OSD agent state lock acquired");
             if (initialized || starting) {
                 AGENT_LOG(logger, ::agent::LogLevel::ERROR,
-                            "agent os already initialized: " +
+                            "agent is already initialized: " +
                             cpp_strerror(-EALREADY));
                 return -EALREADY;
             }
@@ -736,7 +736,7 @@ public:
         std::string ruleName = kvPoolNameString + "-rule";
 
         // 打点计时: 创建 root bucket 耗时
-        const auto t_root_start = std:: chrono::steady_clock::now();
+        const auto t_root_start = std::chrono::steady_clock::now();
         // -------- 1. 创建 root bucket --------
         ret = mon_command_sync({std::string("{\"prefix\": \"osd crush add-bucket\", \"name\": \"") + rootName + "\", \"type\": \"root\"}"}, &outbl, &outs);
         if (ret < 0) {
@@ -1012,9 +1012,9 @@ public:
 
             if (ceph_pool_exists) {
                 AGENT_LOG(logger, ::agent::LogLevel::INFO, "ceph pool already exists, continuing: " + outs);
-                return ret;
             } else {
                 AGENT_LOG(logger, ::agent::LogLevel::ERROR, "Failed to create ceph pool: " + outs);
+                return ret;
             }
         }
         AGENT_LOG(logger, ::agent::LogLevel::INFO, "Ceph pool created: " + outs);
@@ -1030,7 +1030,7 @@ public:
     int32_t kv_agent_delete_ceph_pool(char* kvnsName, uint32_t nameLen) override // NOLINT(g.STD.02-cpp)
     {
         // -------- 输入合法性检测 --------
-        if (kvnsName == nullptr || strnlen(kvnsName, kvnsLen + 1) != kvnsLen) {
+        if (kvnsName == nullptr || strnlen(kvnsName, nameLen + 1) != nameLen) {
             AGENT_LOG(logger, ::agent::LogLevel::ERROR, "Invalid kvnsName");
             return -1;
         }
@@ -1541,7 +1541,7 @@ private:
             int32_t osd_id = osdIdList[i];
 
             // 使用 osd crush add 添加 OSD 到 CRUSH map
-            int32_t ret = mon_command_sync({std::string("{\"prefix\": \"osd crush add\", \"id\": ") + std::to_string(osd_id) + ", \"weight\": 1.0 \"args\": [\"root=" + rootName + "\"]}"}, &outbl, &outs);
+            int32_t ret = mon_command_sync({std::string("{\"prefix\": \"osd crush add\", \"id\": ") + std::to_string(osd_id) + ", \"weight\": 1.0, \"args\": [\"root=" + rootName + "\"]}"}, &outbl, &outs);
 
             if (ret < 0) {
                 AGENT_LOG(logger, ::agent::LogLevel::ERROR, "Failed to add osd." + std::to_string(osd_id) + " to root " + rootName + ": " + outs);
@@ -1660,4 +1660,4 @@ std::unique_ptr<KVAgentImpl> create_kv_osd_agent()
     return std::make_unique<KVOSDAgent>();
 }
 
-} // namespace sgent
+} // namespace agent
