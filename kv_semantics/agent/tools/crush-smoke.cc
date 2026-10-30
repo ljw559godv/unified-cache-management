@@ -3,16 +3,55 @@
 
 #include "KVAgent.h"
 
+#include <atomic>
 #include <cerrno>
 #include <chrono>
-#include <cstdint>
+#include <condition_variable>
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
+#include <mutex>
 #include <string>
 #include <thread>
 
 namespace {
+
+/* sync wrapper for async API: smoke test 是普通 OS 程序， 可用 cv.wait */
+struct AsyncWaitCtx {
+    std::mutex mtx;
+    std::condition_variable cv;
+    int32_t result = 0; 
+    bool done = false;
+};
+
+static void AsyncWaitCb(int32_t result, void* user_data)
+{
+    auto *ctx = static_cast<AsyncWaitCtx *>(user_data);
+    std::lock_guard<std::mutex> lock(ctx->mtx);
+    ctx->result = result;
+    ctx->done = true;
+    ctx->cv.notify_one();
+}
+
+static int32_t AsyncWait(AsyncWaitCtx &ctx)
+{
+    std::unique_lock<std::mutex> lock(ctx.mtx);
+    ctx.cv.wait(lock, [&ctx] { return ctx.done; });
+    return ctx.result;
+}
+
+#define ASYNC_CALL(call_expr)                               \
+    do {                                                    \
+        AsyncWaitCtx ctx;                                   \
+        int32_t _r = (call_expr);                           \
+        if (r != 0) {                                       \
+            std::cerr << "async dispatch failed: " << _r    \
+                      << std::endl;                         \
+            result = _r;                                    \
+            break;                                          \
+        }                                                   \
+        result = AsyncWait(ctx);                            \
+    } while (0)
 
 const char* get_arg(int argc, const char** argv, const std::string& name)
 {
@@ -101,8 +140,9 @@ int main(int argc, const char** argv)
         std::cerr << "[trace] === delete-only mode ===" << std::endl;
 
         std::cerr << "[trace] calling kv_agent_delete_ceph_pool ns=" << ns_name_str << std::endl;
-        result = kv_agent_delete_ceph_pool(agent, const_cast<char*>(ns_name_str.c_str()),
-                                           static_cast<uint32_t>(ns_name_str.size()));
+        ASYNC_CALL(kv_agent_delete_ceph_pool_async(agent,
+                   const_cast<char*>(ns_name_str.c_str()),
+                   static_cast<uint32_t>(ns_name_str.size()), AsyncWaitCb, &_ctx));
         std::cerr << "[trace] kv_agent_delete_ceph_pool result=" << result << std::endl;
         if (result != 0) {
             std::cerr << "kv_agent_delete_ceph_pool failed: " << result << std::endl;
@@ -110,9 +150,10 @@ int main(int argc, const char** argv)
 
         int32_t osdIdList_empty[1] = {0};
         std::cerr << "[trace] calling kv_agent_delete_crush_root pool=" << pool_name_str << std::endl;
-        result = kv_agent_delete_crush_root(agent, const_cast<char*>(pool_name_str.c_str()),
-                                           static_cast<uint32_t>(pool_name_str.size()),
-                                           osdIdList_empty, 0);
+        ASYNC_CALL(kv_agent_delete_crush_root_async(agent,
+                   const_cast<char*>(pool_name_str.c_str()),
+                   static_cast<uint32_t>(pool_name_str.size()),
+                   osdIdList_empty, 0, AsyncWaitCb, &_ctx));
         std::cerr << "[trace] kv_agent_delete_crush_root result=" << result << std::endl;
         if (result != 0) {
             std::cerr << "kv_agent_delete_crush_root failed: " << result << std::endl;
@@ -130,16 +171,20 @@ int main(int argc, const char** argv)
         // Note: For a real test, you would pass actual OSD IDs
         int32_t osdIdList_empty[1] = {0};
         std::cerr << "[trace] calling kv_agent_create_crush_root pool=" << pool_name_str << std::endl;
-        result = kv_agent_create_crush_root(agent, const_cast<char*>(pool_name_str.c_str()),
-                                           static_cast<uint32_t>(pool_name_str.size()),
-                                           osdIdList_empty, 1);
+        ASYNC_CALL(kv_agent_create_crush_root_async(agent,
+                   const_cast<char*>(pool_name_str.c_str()),
+                   static_cast<uint32_t>(pool_name_str.size()),
+                   osdIdList_empty, 1, AsyncWaitCb, &_ctx));
         std::cerr << "[trace] kv_agent_create_crush_root result=" << result << std::endl;
         if (result != 0) {
             std::cerr << "kv_agent_create_crush_root failed: " << result << std::endl;
             std::cerr << "[trace] cleanup: calling kv_agent_delete_crush_root for rollback" << std::endl;
-            kv_agent_delete_crush_root(agent, const_cast<char*>(pool_name_str.c_str()),
-                                       static_cast<uint32_t>(pool_name_str.size()),
-                                       osdIdList_empty, 1);
+            AsyncWaitCtx rb_ctx;
+            kv_agent_delete_crush_root_async(agent,
+                                             const_cast<char*>(pool_name_str.c_str()),
+                                             static_cast<uint32_t>(pool_name_str.size()),
+                                             osdIdList_empty, 1, AsyncWaitCb, &rb_ctx);
+            (void)AsyncWait(rb_ctx);
             kv_agent_destroy(agent);
             return EXIT_FAILURE;
         }
@@ -147,17 +192,21 @@ int main(int argc, const char** argv)
         // Step 2: Create Ceph pool (depends on CRUSH rule created by kv_agent_create_crush_root)
         std::cerr << "[trace] calling kv_agent_create_ceph_pool pool=" << pool_name_str
                   << " ns=" << ns_name_str << std::endl;
-        result = kv_agent_create_ceph_pool(agent, const_cast<char*>(pool_name_str.c_str()),
-                                           static_cast<uint32_t>(pool_name_str.size()),
-                                           const_cast<char*>(ns_name_str.c_str()),
-                                           static_cast<uint32_t>(ns_name_str.size()));
+        ASYNC_CALL(kv_agent_create_ceph_pool_async(agent,
+                   const_cast<char*>(pool_name_str.c_str()),
+                   static_cast<uint32_t>(pool_name_str.size()),
+                   const_cast<char*>(ns_name_str.c_str()),
+                   static_cast<uint32_t>(ns_name_str.size()), AsyncWaitCb, &_ctx));
         std::cerr << "[trace] kv_agent_create_ceph_pool result=" << result << std::endl;
         if (result != 0) {
             std::cerr << "kv_agent_create_ceph_pool failed: " << result << std::endl;
             std::cerr << "[trace] cleanup: calling kv_agent_delete_crush_root for rollback" << std::endl;
-            kv_agent_delete_crush_root(agent, const_cast<char*>(pool_name_str.c_str()),
-                                       static_cast<uint32_t>(pool_name_str.size()),
-                                       osdIdList_empty, 0);
+            AsyncWaitCtx rb_ctx;
+            kv_agent_delete_crush_root_async(agent,
+                                             const_cast<char*>(pool_name_str.c_str()),
+                                             static_cast<uint32_t>(pool_name_str.size()),
+                                             osdIdList_empty, 0, AsyncWaitCb, &rb_ctx);
+            (void)AsyncWait(rb_ctx);
             kv_agent_destroy(agent);
             return EXIT_FAILURE;
         }
@@ -166,8 +215,9 @@ int main(int argc, const char** argv)
 
         // Step 3: Delete Ceph pool
         std::cerr << "[trace] calling kv_agent_delete_ceph_pool ns=" << ns_name_str << std::endl;
-        result = kv_agent_delete_ceph_pool(agent, const_cast<char*>(ns_name_str.c_str()),
-                                           static_cast<uint32_t>(ns_name_str.size()));
+        ASYNC_CALL(kv_agent_delete_ceph_pool_async(agent,
+                   const_cast<char*>(ns_name_str.c_str()),
+                   static_cast<uint32_t>(ns_name_str.size()), AsyncWaitCb, &_ctx));
         std::cerr << "[trace] kv_agent_delete_ceph_pool result=" << result << std::endl;
         if (result != 0) {
             std::cerr << "kv_agent_delete_ceph_pool failed: " << result << std::endl;
@@ -176,9 +226,10 @@ int main(int argc, const char** argv)
 
         // Step 4: Delete CRUSH root
         std::cerr << "[trace] calling kv_agent_delete_crush_root pool=" << pool_name_str << std::endl;
-        result = kv_agent_delete_crush_root(agent, const_cast<char*>(pool_name_str.c_str()),
-                                           static_cast<uint32_t>(pool_name_str.size()),
-                                           osdIdList_empty, 1);
+        ASYNC_CALL(kv_agent_delete_crush_root_async(agent,
+                   const_cast<char*>(pool_name_str.c_str()),
+                   static_cast<uint32_t>(pool_name_str.size()),
+                   osdIdList_empty, 1, AsyncWaitCb, &_ctx));
         std::cerr << "[trace] kv_agent_delete_crush_root result=" << result << std::endl;
         if (result != 0) {
             std::cerr << "kv_agent_delete_crush_root failed: " << result << std::endl;
@@ -189,9 +240,10 @@ int main(int argc, const char** argv)
 
         int32_t osdIdList_empty[1] = {0};
         std::cerr << "[trace] calling kv_agent_create_crush_root pool=" << pool_name_str << std::endl;
-        result = kv_agent_create_crush_root(agent, const_cast<char*>(pool_name_str.c_str()),
-                                           static_cast<uint32_t>(pool_name_str.size()),
-                                           osdIdList_empty, 0);
+        ASYNC_CALL(kv_agent_create_crush_root_async(agent,
+                   const_cast<char*>(pool_name_str.c_str()),
+                   static_cast<uint32_t>(pool_name_str.size()),
+                   osdIdList_empty, 0, AsyncWaitCb, &_ctx));
         std::cerr << "[trace] kv_agent_create_crush_root result=" << result << std::endl;
         if (result != 0) {
             std::cerr << "kv_agent_create_crush_root failed: " << result << std::endl;
@@ -201,10 +253,11 @@ int main(int argc, const char** argv)
 
         std::cerr << "[trace] calling kv_agent_create_ceph_pool pool=" << pool_name_str
                   << " ns=" << ns_name_str << std::endl;
-        result = kv_agent_create_ceph_pool(agent, const_cast<char*>(pool_name_str.c_str()),
-                                           static_cast<uint32_t>(pool_name_str.size()),
-                                           const_cast<char*>(ns_name_str.c_str()),
-                                           static_cast<uint32_t>(ns_name_str.size()));
+        ASYNC_CALL(kv_agent_create_ceph_pool_async(agent,
+                   const_cast<char*>(pool_name_str.c_str()),
+                   static_cast<uint32_t>(pool_name_str.size()),
+                   const_cast<char*>(ns_name_str.c_str()),
+                   static_cast<uint32_t>(ns_name_str.size(), AsyncWaitCb, &_ctx)));
         std::cerr << "[trace] kv_agent_create_ceph_pool result=" << result << std::endl;
         if (result != 0) {
             std::cerr << "kv_agent_create_ceph_pool failed: " << result << std::endl;
