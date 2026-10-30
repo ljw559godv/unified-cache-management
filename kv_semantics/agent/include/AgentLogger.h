@@ -156,7 +156,7 @@ void log(AgentLogger *logger, LogLevel level, const char *module,
             _agentLog(PID_KVCACHE_POOL, _log_level, (char *)_AGENT_FILENAME_, __LINE__, __func__, \
                    LOG_ID_KVCACHE_POOL, _log_msg.c_str()); \
         } else { \
-            ::agent::log((logger), (level), __AGENT_FILENAME__, __func__, (message)); \
+            ::agent::log((logger), (level), _AGENT_FILENAME_, __func__, (message)); \
         } \
     } while (0)
 // NOLINTEND(g.PRE.06-cpp)
