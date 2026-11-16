@@ -1,7 +1,7 @@
 /**
  * MIT License
  *
- * Copyright (c) 2026 Huawei Technologies Co., Ltd. All rights reserved.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2026. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -36,11 +36,20 @@ namespace kv {
 using TaskId = std::uint64_t;
 using MRHandle = std::uint64_t;
 using NodeId = std::uint64_t;
+using KvNsId = std::uint32_t;
 constexpr std::size_t kCacheKeySizeBytes = 8;
 using CacheKey = std::array<std::byte, kCacheKeySizeBytes>;
 
 // KV protocol requires 512B alignment for device buffers and offsets.
 constexpr std::uint32_t kAlignmentBytes = 512;
+
+// Legacy single-namespace clients use this id when they are adapted to the
+// multi-namespace ViewUniverse contract. M800 clients must use the XXHASH32
+// value derived from the Ceph pool name instead.
+constexpr KvNsId kDefaultKvNsId = 0;
+// Fixed seed used by every M800 component that derives KvNsId from a Ceph
+// pool name. All producers must agree on this value before encoding a view.
+constexpr KvNsId kKvNsIdHashSeed = 5381;
 
 constexpr TaskId kInvalidTaskId = 0;
 constexpr MRHandle kInvalidMRHandle = 0;
@@ -206,6 +215,9 @@ struct TransportConfig {
 enum class SharedProviderMode : std::uint8_t { INDEPENDENT = 0, SHARED = 1 };
 
 struct KvClientConfig {
+    // Loads client configuration from a key-value file without initializing a client.
+    static Status LoadFromFile(const std::string& configPath, KvClientConfig& config);
+
     std::string clientId;
     std::vector<std::string> viewServiceAddrs;
 
@@ -214,6 +226,8 @@ struct KvClientConfig {
     std::uint32_t maxInflightTasks{1024};
     std::uint64_t defaultWaitTimeoutMs{100};
     std::uint64_t timeoutMs{100};
+    // Keep single-key requests on the currently supported batch IO path by default.
+    bool useBatchIoForSingleKey{true};
     SharedProviderMode sharedProviderMode{SharedProviderMode::INDEPENDENT};
     std::unordered_map<std::string, std::string> attrs;
 };
