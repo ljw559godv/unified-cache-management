@@ -23,6 +23,7 @@
  * */
 #pragma once
 
+#include <memory>
 #include "view/m800_view_agent_client.h"
 #include "view/view_http_server.h"
 #include "view/view_server.h"
@@ -45,5 +46,9 @@ public:
     // M800 masters must return a real multi-namespace universe.
     virtual Status GetAllViews(ViewUniverse& universe) = 0;
 };
+
+std::shared_ptr<M800ViewMasterServer> CreateM800ViewMasterServer(
+    const M800ViewServerConfig& config,
+    std::unique_ptr<M800ViewAgentClientFactory> agentFactory = nullptr);
 
 }  // namespace kv
